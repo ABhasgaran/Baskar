@@ -1,0 +1,14 @@
+http://jasonwatmore.com/post/2016/09/29/angular-2-user-registration-and-login-example-tutorial
+
+http://social.technet.microsoft.com/wiki/contents/articles/35079.asp-net-core1-0-insertselect-to-database-using-angular2-and-web-api.aspx
+
+https://gallery.technet.microsoft.com/ASPNET-Core10-InsertSelect-d50380c9
+https://ievangelistblog.wordpress.com/2016/01/13/building-an-angular2-spa-with-asp-net-5-mvc-6-web-api-2-and-typescript-1-7-5/
+http://proudmonkey.azurewebsites.net/asp-net-core-and-angular-2-code-venture-part-1/
+https://www.sitepoint.com/getting-started-with-angular-2-using-typescript/
+http://stackoverflow.com/questions/36427005/getting-data-from-web-api-in-angular-2
+http://www.elanderson.net/2016/01/angular-2-with-asp-net-core-web-api/
+https://medium.com/front-end-hacking/getting-started-with-angular-2-asp-net-94b63980b58f#.izl3svs20
+https://www.npmjs.com/package/angular2-in-memory-web-api
+http://www.talkingdotnet.com/cascading-dropdown-list-aspnet-core-web-api-angularjs-2/
+http://www.typescriptlang.org/docs/handbook/tsconfig-json.html
