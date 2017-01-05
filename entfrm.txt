@@ -1,0 +1,275 @@
+ 3
+down vote
+	
+
+I'd look at some of the examples on Github to see how other people have done it. There are a number of things that have to be just right for it all to work, and the errors can be nebulous until you get it up and running.
+
+Add a Web API Controller Class to your project. Just to make sure everything is working at first, I'd suggest hard coding your HttpGet attribute to "api/values".
+
+ValuesController.cs. :
+
+    public class ValuesController : Controller
+    {
+      [HttpGet("api/values")]
+      public IActionResult Get()
+      {
+          return new JsonResult(new string[] { "value1", "value2" });
+      }
+
+Startup.Cs. You need the angular2 routes to not interfere with ASP.NET's routes. This means you need to serve the index.html to the client if there is a 404 error. The app.Use lambda accomplishes this. Notice that it is before the calls to app.UseDefaultFiles() and app.UseStaticFiles()
+
+    public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+    {
+        ...
+        var angularRoutes = new[] {
+             "/home"
+         };
+
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.HasValue && null != angularRoutes.FirstOrDefault(
+                (ar) => context.Request.Path.Value.StartsWith(ar, StringComparison.OrdinalIgnoreCase)))
+            {
+                context.Request.Path = new PathString("/");
+            }
+            await next();
+        });
+
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
+        app.UseMvc(routes =>
+        {
+            routes.MapRoute(
+                name: "default",
+                template: "{controller=Home}/{action=Index}/{id?}");
+        });
+    }
+
+Once you have this setup, you should test your API with Postman to make sure the routing is working as you want it to. If this doesn't work, it won't work in Angular. I have http://localhost:5001/ set as my App URL in my Visual Studio project Debug settings.
+
+f that is working correctly, move on to getting it to load with Angular 2. You'll need to use the base element just after the head tag in your html file. This tells the Angular router what the static part of the URL is:
+
+Index.html
+
+    <base href="/">
+
+Next you'll need to create a Service in Angular2 to Get the values from your API: dataService.ts
+
+import { Http, Response, Headers } from '@angular/http';
+import 'rxjs/add/operator/map'
+import { Observable } from 'rxjs/Observable';
+import { Configuration } from '../app.constants';
+
+@Injectable()
+export class DataService { 
+  private actionUrl: string;
+  constructor(private _http: Http, private _configuration: Configuration) {
+    this.actionUrl = 'http://localhost:5001/api/values/';
+}
+
+public GetAll = (): Observable<any> => {
+    return this._http.get(this.actionUrl)
+        .map((response: Response) => <any>response.json())
+        .do(x => console.log(x));
+}
+
+The .do operator in RxJS is very handy. It will allow you to debug that you are correctly getting the values from your API. See Andre Staltz's blog for more details.
+
+Finally, create a component to use the service: app.component.ts
+
+import { Observable } from 'rxjs/Observable';
+import { Component, OnInit } from '@angular/core';
+import { Http } from '@angular/http';
+import { DataService } from '../services/DataService';
+
+@Component({
+    selector: 'app',
+    template: `My Values: <ul><li *ngFor="let value of values">
+        <span>{{value.id}} </span>
+      </li></ul>`,
+    providers: [DataService]
+})
+
+export class AppComponent implements OnInit {
+  public values: any[];
+  constructor(private _dataService: DataService) {}
+  ngOnInit() {
+    this._dataService
+        .GetAll()
+        .subscribe(data => this.values = data,
+        error => console.log(error),
+        () => console.log('Get all complete'));
+  }
+}
+
+
+
+
+This is how I did it my application (angular2 as front-end with Web API core)-
+
+    Create a controller using entity framework which provides all actions - GET, POST, PUT and DELETE. Refer this link in case you are new to web api and entity framework - https://docs.efproject.net/en/latest/platforms/aspnetcore/existing-db.html
+
+    Enabled CORS in Web API
+
+[This is done to handle cross communication from localhost:3000 (angular2) to localhost:59024 (webapi)]
+
+First, add dependency in project.json - "Microsoft.AspNetCore.Cors": "1.0.0",
+
+then enable CORS in startup.cs like this-
+
+app.UseCors(builder => {
+    builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+});
+
+You can find more information about CORS here - https://docs.asp.net/en/latest/security/cors.html
+
+3.In Angular2 front-end, you can write your service component like this-
+
+@Injectable()
+export class WebApiService {
+
+    private _webApiUrl = 'http://localhost:59024/api/EmployeeMastersAPI'; 
+
+        constructor(private _http: Http) { 
+
+        }
+
+    getEmployees(): Observable<{}> {
+        return this._http.get(this._webApiUrl)
+            .map((response: Response) => <any[]> response.json())
+             .do(data => console.log('All: ' +  JSON.stringify(data)))
+             .catch(this.handleError)
+            ;
+    }
+
+    getEmployee(id: number): Observable<IEmployee> {
+        return this.getEmployees()
+            .map((emp: IEmployee[]) => emp.find(p => p.EMPID === id));
+    }
+
+    addEmployeesDetails(emp) {
+        var headers = new Headers();
+        headers.append('Content-Type', 'application/json; charset=utf-8');
+        console.log('add emp : ' +  JSON.stringify(emp));
+        this._http.post(this._webApiUrl, JSON.stringify(emp), { headers: headers }).subscribe();
+
+    }
+
+    private handleError(error: Response) {
+        console.error(error);
+        return Observable.throw(error.json().error || 'Server error');
+    }
+
+}
+
+
+https://docs.microsoft.com/en-us/ef/core/get-started/aspnetcore/existing-db
+
+https://medium.com/@blacksonic86/angular-2-authentication-revisited-611bf7373bf9#.fwv1ctsg2
+
+https://medium.com/@blacksonic86/authentication-in-angular-2-958052c64492#.73pahx8td
+https://continuousdeveloper.com/2016/07/06/protecting-routes-in-angular-2/
+
+http://www.tonylunt.com/angular-2/angular-2-routing-with-login-redirection/
+
+http://jasonwatmore.com/post/2016/09/29/angular-2-user-registration-and-login-example-tutorial
+
+http://stackoverflow.com/questions/39679623/angular-2-redirect-login-page
+
+http://stackoverflow.com/questions/40020703/angular2-redirect-to-calling-url-after-successful-login
+
+http://stackoverflow.com/questions/39226651/angular2-redirect-after-login
+
+http://stackoverflow.com/questions/36160118/angular2-redirect-after-login
+
+https://hgminerva.wordpress.com/2016/03/23/angular-2-and-asp-net-web-api-authentication/
+
+http://asp.net-hacker.rocks/2016/09/22/web-api-authentication-in-aspnetcore-and-angular2.html
+
+
+
+
+http://www.oracle.com/technetwork/issue-archive/2011/11-sep/o51odt-453447.html
+
+http://www.oracle.com/webfolder/technetwork/tutorials/obe/db/dotnet/EntityFrameworkOBE_2/EntityFrameworkOBE.html
+
+http://www.oracle.com/webfolder/technetwork/tutorials/obe/db/dotnet/CodeFirst/index.html
+
+https://docs.oracle.com/cd/E17952_01/connector-net-en/connector-net-entityframework60.html
+
+http://www.oracle.com/technetwork/issue-archive/2011/11-sep/o51odt-453447.html
+
+https://quysnhat.wordpress.com/2012/08/03/using-entity-framework-to-call-oracle-stored-procedure-in-asp-net-mvc3/
+
+http://www.c-sharpcorner.com/UploadFile/ff2f08/call-store-procedure-from-entity-framework/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+http://stackoverflow.com/questions/20901419/how-to-call-stored-procedure-in-entity-framework-6-code-first
+https://www.asp.net/mvc/overview/getting-started/getting-started-with-ef-using-mvc/async-and-stored-procedures-with-the-entity-framework-in-an-asp-net-mvc-application
+
+http://www.mikesdotnetting.com/article/299/entity-framework-code-first-and-stored-procedures
+check this
+http://www.entityframeworktutorial.net/EntityFramework4.3/execute-stored-procedure-using-dbcontext.aspx
+
+http://www.entityframeworktutorial.net/stored-procedure-in-entity-framework.aspx
+
+http://www.mikesdotnetting.com/article/299/entity-framework-code-first-and-stored-procedures
+
+
+
+
+http://stackoverflow.com/questions/7609721/entity-framework-one-to-many-insert-foreign-key-violation
+
+http://www.c-sharpcorner.com/UploadFile/3d39b4/relationship-in-entity-framework-using-code-first-approach-w/
+
+
+
+
+
+check this
+https://www.codeproject.com/Tips/893609/CRUD-Many-to-Many-Entity-Framework
+
+https://samsaffron.com/archive/2012/01/16/that-annoying-insert-problem-getting-data-into-the-db-using-dapper
+
+http://www.hanselman.com/blog/SimpleCodeFirstWithEntityFramework4MagicUnicornFeatureCTP4.aspx
+
+
+https://dzone.com/articles/solving-detached-many-many
+
+
+check this
+https://www.progress.com/tutorials/ado-net/linq-and-entity-sql-to-oracle-with-adonet
+
+http://stackoverflow.com/questions/7609721/entity-framework-one-to-many-insert-foreign-key-violation
+
+http://stackoverflow.com/questions/18111701/entity-framework-foreign-key-problems-on-oracle-code-first
+
+http://stackoverflow.com/questions/9133063/entity-framework-with-oracle-inserting-parent-with-child
+
+https://quysnhat.wordpress.com/2012/08/08/entity-framework-with-oracle-inserting-parent-with-child/
+
+
+check this
+http://www.chrisumbel.com/article/oracle_entity_framework_ef
+
+
+https://docs.oracle.com/cd/E63277_01/win.121/e63268/entityCodeFirst.htm#ODPNT8473
+
+http://download.oracle.com/oll/obe/EntityFrameworkOBE/EntityFrameworkOBE.htm
+
+
+
+
