@@ -1,0 +1,1248 @@
+https://keathmilligan.net/jwt-authentication-with-flask-and-angular-2-a-simple-end-to-end-example/
+
+JSON Web Tokens are a standard method of securing exchanges between two parties (such as web server app and client) that has a number of advantages over other methods of securing exchanges such as cookie-based sessions – enhanced security, less overhead and statelessness to name a few.
+
+In this post, well take a look at using JWT with Flask and Angular 2 and build a simple end-to-end example.
+
+https://stormpath.com/blog/token-auth-spa
+
+JSON Web Tokens (JWT): A Crash Course
+
+The best known solutions to authentication and authorization problems for APIs are the OAuth 2.0 spec, and tangentially the JWT specification, which are fairly dense. Cliff’s Notes Time! Here’s what you need to know:
+
+    Json Web Tokens (JWTs) are a great authentication mechanism. They give you a structured way to declare who a user is and what they can access. They can be encrypted and signed for verification.
+    The notion of scopes is powerful and yet incredibly simple: you have tons of freedom to design your own access control language.
+    Refresh tokens are horribly confusing and don’t really solve any security problems if you need high security. We’ll elaborate on this later.
+
+If you encounter a token in the wild, it looks like this:
+
+"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk..."
+1
+2
+	
+"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk..."
+
+This is a Base64 encoded string. If you break it apart you’ll actually find three separate sections:
+
+eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
+.
+eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt
+cGxlLmNvbS9pc19yb290Ijp0cnVlfQ
+.
+dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk
+1
+2
+3
+4
+5
+6
+7
+	
+eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
+.
+eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt
+cGxlLmNvbS9pc19yb290Ijp0cnVlfQ
+.
+dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk
+
+What you see is a header which describes the token, a payload which contains the juicy bits, and a signature hash that can be used to verify the integrity of the token (if you have the secret key that was used to sign it).
+
+We’re going to magically decode the middle part, the payload, and we get this nice JSON object:
+
+{
+    "sub": "users/TzMUocMF4p",
+    "name": "Robert Token Man",
+    "scope": "self groups/admins",
+    "exp": "1300819380"
+}
+1
+2
+3
+4
+5
+6
+7
+	
+{
+    "sub": "users/TzMUocMF4p",
+    "name": "Robert Token Man",
+    "scope": "self groups/admins",
+    "exp": "1300819380"
+}
+
+This is the payload of your token, technically called the JWS Payload. It allows you to know the following:
+
+    Who this person is and the URI to their user resource (sub)
+    What this person can access with this token (scope)
+    When the token expires. Your API should be using this when it verifies the token.
+
+These declarations are called claims and they are a set of assertions that can be used to “know” things about the subject. Because the token is signed with a secret key you can verify it’s signature and implictly trust what is claimed. This provides some interesting optimizations for your backend architecture, but there are some tradeoffs and we discuss them in a later section.
+
+Tokens are given to your users after they present some hard credentials, typically a username and password but they could also provide API keys or even tokens from another service. Stormpath’s API Key Authentication Feature is an example of this. The idea is that you present your hard credentials once and then you get a token that you use in place of the hard credentials.
+
+The JSON Web Token (JWT) specification is gaining traction quickly. It provides structure and security, but with the flexibility to modify it for your application. We highly recommend it and have a much longer article on them: Use JWT the Right Way!
+Why JWTs Are Great for Single Page Applications
+
+SPAs tend to have many faces: the logged in view, the logged out view, or the restricted view. It’s all about access control. Your users are all getting the same app but they may not have the same levels of access. You’ll find yourself building access control logic for your front end and your back end.
+
+Because tokens contain all this information, they are very portable: they can be used by your UI and your backend to make decisions. You can share them with partner services as a means of building Single Sign On services that delegate users to the correct application.
+
+There are some details that matter if you want to achieve this nirvana while maintaing security in the browser. We’ll get to that in the “Tokens Love Cookies” section.
+How to Use JWTs Securely
+
+If your tokens get stolen, all bets are off. Since we’re talking about SPAs we’re talking about web browsers, and we all know how many holes there are when it comes to securing data in a web brower.
+
+But these problems have solutions, and this is what you must do:
+
+    Sign your tokens with a strong key that is available ONLY to the authentication service. Every time you use a token to authenticate a user, your server MUST verify that the token was signed with your secret key.
+
+    You should encrypt your tokens if you have to put sensitive, non-opaque information in them. This is called JSON Web Encryption or JWE
+
+    You should NEVER transmit tokens over a non-HTTPS connection. Man in the middle attacks are real.
+
+    You should store JWTs in secure, HTTPS-only cookies. This prevents Cross-Site Scripting XSS attacks. We’ll cover this more in the section below, “Tokens Love Cookies”
+
+But there is one catch: you have to decide how long your tokens are valid for and how you will revoke them if you need to.
+Token Expiration & Revocation
+
+The stateless benefit of simply checking the signature is great, but it does come with a problem: it means that the access token is essentially valid forever. How do you revoke the access token if you need to?
+
+Your next level of defense is token expiration. You should set this to a value that makes sense for your application. If you’re a bank, that might be 15 minutes. If you are a social or mobile app, you might want the token to be valid forever. But what if you do need to take it away at some point?
+
+The OAuth solution to this problem is a two-token approach, where a short-lived access token with a longer-lived refresh token is used to get more access tokens. Im my opinion, the two-token system is a very convoluted solution that feels like it was trying to address architecture optimizations and not to make security easy. For more detail I really suggest this stack overflow answer.
+
+The real answer to token revokation is that you need to check more than just the signature and the expiration.
+
+In the Stormpath product we provide a “status” field on all our account objects. This lets you verify that the subject of the token (the account) is not disabled.
+
+Another option is to maintain a record of all the tokens you give out. You add a unique value to the jti field of the token and then retain that in your database, in such a way that they are linked to the users they were granted to. You can then add a layer in your system which allows you to declare a token invalid, and you check all incoming tokens against this blacklist.
+
+Yes, with that last suggestion we have lost the holy grail of a stateless authentication check – but sometimes security requires tradeoffs.
+Token Loves Cookie
+
+I see a lot of discussions where cookies are pitted against access tokens. While we’ve all been burned by systems that store a session ID in a cookie, and that cookie is not secured and thus gets stolen. That sucks, but its not a reason to use tokens. Its a reason to avoid non-secure, non-https cookies.
+
+Storing access tokens in HTTPS-only cookies is the best thing you can do. Never store access tokens in local storage, that storage area is very vulnerable to XSS attacks. Storing them in secure cookies achieves the following:
+
+    You don’t expose the token to the Javascript environment in the browser, which is vulnerable to XSS attacks
+
+    You don’t transmit the token over non-HTTPS connections, which are prone to man-in-the-middle attacks.
+
+But, as always, there are tradeoffs – and there are two we care about:
+
+The security tradeoff is that secure cookies are still vulnerable to CSRF Attacks and you need to implement a CSRF token strategy to combat this issue. This is quite trivial and our SDKs do this for you out of the box.
+
+The application tradeoff is the loss of visibility into the token. All that great information about the subject and the claims is now hidden from your single page app. There are two ways to work around this:
+
+Use the token to fetch the data your SPA needs
+
+This is my preferred approach. You create a token that gives access to an endpoint such as /user/current. This endpoint should respond with the information you need to build the SPA for the user. When your SPA bootstraps, you attempt to access this endpoint. If you get back a successful response you continue with the bootstrap. If you do not, you know that the user needs to authenticate.
+
+Use out-of-band information
+
+Take advantage of the response body when you are responding to a credential exchange. At the same time you write the access token to a secure cookie you can also provide some information in the response body as well. My suggestion is this: put the payload of the JWT in the response body. This allows your JS application to get that information while not exposing the signature of the token.
+
+It does, however, mean that you should not store sensitive information in the access token payload because you’re probably going to want to cache it in the browser for future reloads of the SPA.
+Secure All The Things!
+
+So many tradeoffs, so little time! My intention for this article is to give you the options for using tokens happily and securely in your single page app, so your team can make the best decisions.
+
+Please leave your comments below and check out our new Stormpath Angular SDK and Express-Stormpath – they demonstrate how we put this into practice so it’s easy for you to take advantage of this new paradigm.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+https://stormpath.com/blog/where-to-store-your-jwts-cookies-vs-html5-web-storage
+JWT Cookie Storage
+
+Exchanging a username and password for a JWT to store it in a cookie is simple as well. The response would use the Set-Cookie HTTP header:
+
+HTTP/1.1 200 OK
+
+Set-Cookie: access_token=eyJhbGciOiJIUzI1NiIsI.eyJpc3MiOiJodHRwczotcGxlL.mFrs3Zo8eaSNcxiNfvRh9dqKP4F1cB; Secure; HttpOnly;
+1
+2
+3
+4
+	
+HTTP/1.1 200 OK
+ 
+Set-Cookie: access_token=eyJhbGciOiJIUzI1NiIsI.eyJpc3MiOiJodHRwczotcGxlL.mFrs3Zo8eaSNcxiNfvRh9dqKP4F1cB; Secure; HttpOnly;
+
+To pass the access token back to your protected APIs on the same domain, the browser would automatically include the cookie value. The request to your protected API would resemble:
+
+GET /stars/pollux
+Host: galaxies.com
+
+Cookie: access_token=eyJhbGciOiJIUzI1NiIsI.eyJpc3MiOiJodHRwczotcGxlL.mFrs3Zo8eaSNcxiNfvRh9dqKP4F1cB;
+1
+2
+3
+4
+5
+	
+GET /stars/pollux
+Host: galaxies.com
+ 
+Cookie: access_token=eyJhbGciOiJIUzI1NiIsI.eyJpc3MiOiJodHRwczotcGxlL.mFrs3Zo8eaSNcxiNfvRh9dqKP4F1cB;
+
+So, What’s the difference?
+
+If you compare these approaches, both receive a JWT down to the browser. Both are stateless because all the information your API needs is in the JWT. Both are simple to pass back up to your protected APIs. The difference is in the medium.
+JWT sessionStorage and localStorage Security
+
+Web Storage (localStorage/sessionStorage) is accessible through JavaScript on the same domain. This means that any JavaScript running on your site will have access to web storage, and because of this can be vulnerable to cross-site scripting (XSS) attacks. XSS, in a nutshell, is a type of vulnerability where an attacker can inject JavaScript that will run on your page. Basic XSS attacks attempt to inject JavaScript through form inputs, where the attacker puts <script>alert('You are Hacked');</script> into a form to see if it is run by the browser and can be viewed by other users.
+
+To prevent XSS, the common response is to escape and encode all untrusted data. But this is far from the full story. In 2015, modern web apps use JavaScript hosted on CDNs or outside infrastructure. Modern web apps include 3rd party JavaScript libraries for A/B testing, funnel/market analysis, and ads. We use package managers like Bower to import other peoples’ code into our apps.
+
+What if only one of the scripts you use is compromised? Malicious JavaScript can be embedded on the page, and Web Storage is compromised. These types of XSS attacks can get everyone’s Web Storage that visits your site, without their knowledge. This is probably why a bunch of organizations advise not to store anything of value or trust any information in web storage. This includes session identifiers and tokens.
+
+As a storage mechanism, Web Storage does not enforce any secure standards during transfer. Whoever reads Web Storage and uses it must do their due diligence to ensure they always send the JWT over HTTPS and never HTTP.
+JWT Cookie Storage Security
+
+Cookies, when used with the HttpOnly cookie flag, are not accessible through JavaScript, and are immune to XSS. You can also set the Secure cookie flag to guarantee the cookie is only sent over HTTPS. This is one of the main reasons that cookies have been leveraged in the past to store tokens or session data. Modern developers are hesitant to use cookies because they traditionally required state to be stored on the server, thus breaking RESTful best practices. Cookies as a storage mechanism do not require state to be stored on the server if you are storing a JWT in the cookie. This is because the JWT encapsulates everything the server needs to serve the request.
+
+However, cookies are vulnerable to a different type of attack: cross-site request forgery (CSRF). A CSRF attack is a type of attack that occurs when a malicious web site, email, or blog causes a user’s web browser to perform an unwanted action on a trusted site on which the user is currently authenticated. This is an exploit of how the browser handles cookies. A cookie can only be sent to the domains in which it is allowed. By default, this is the domain that originally set the cookie. The cookie will be sent for a request regardless of whether you are on galaxies.com or hahagonnahackyou.com.
+
+CSRF works by attempting to lure you to hahagonnahackyou.com. That site will have either an img tag or JavaScript to emulate a form post to galaxies.com and attempt to hijack your session, if it is still valid, and modify your account.
+
+For example:
+
+<body>
+
+  <!– CSRF with an img tag –>
+
+  <img href="http://galaxies.com/stars/pollux?transferTo=tom@stealingstars.com" />
+
+  <!– or with a hidden form post –>
+
+  <script type="text/javascript">
+  $(document).ready(function() {
+    window.document.forms[0].submit();
+  });
+  </script>
+
+  <div style="display:none;">
+    <form action="http://galaxies.com/stars/pollux" method="POST">
+      <input name="transferTo" value="tom@stealingstars.com" />
+    <form>
+  </div>
+</body>
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+	
+<body>
+ 
+  <!– CSRF with an img tag –>
+ 
+  <img href="http://galaxies.com/stars/pollux?transferTo=tom@stealingstars.com" />
+ 
+  <!– or with a hidden form post –>
+ 
+  <script type="text/javascript">
+  $(document).ready(function() {
+    window.document.forms[0].submit();
+  });
+  </script>
+ 
+  <div style="display:none;">
+    <form action="http://galaxies.com/stars/pollux" method="POST">
+      <input name="transferTo" value="tom@stealingstars.com" />
+    <form>
+  </div>
+</body>
+
+Both would send the cookie for galaxies.com and could potentially cause an unauthorized state change. CSRF can be prevented by using synchronized token patterns. This sounds complicated, but all modern web frameworks have support for this.
+
+For example, AngularJS has a solution to validate that the cookie is accessible by only your domain. Straight from AngularJS docs:
+
+    When performing XHR requests, the $http service reads a token from a cookie (by default, XSRF-TOKEN) and sets it as an HTTP header (X-XSRF-TOKEN). Since only JavaScript that runs on your domain can read the cookie, your server can be assured that the XHR came from JavaScript running on your domain.
+
+You can make this CSRF protection stateless by including a xsrfToken JWT claim:
+
+{
+  "iss": "http://galaxies.com",
+  "exp": 1300819380,
+  "scopes": ["explorer", "solar-harvester", "seller"],
+  "sub": "tom@andromeda.com",
+  "xsrfToken": "d9b9714c-7ac0-42e0-8696-2dae95dbc33e"
+}
+1
+2
+3
+4
+5
+6
+7
+8
+	
+{
+  "iss": "http://galaxies.com",
+  "exp": 1300819380,
+  "scopes": ["explorer", "solar-harvester", "seller"],
+  "sub": "tom@andromeda.com",
+  "xsrfToken": "d9b9714c-7ac0-42e0-8696-2dae95dbc33e"
+}
+
+If you are using the Stormpath SDK for AngularJS, you get stateless CSRF protection with no development effort.
+
+Leveraging your web app framework’s CSRF protection makes cookies rock solid for storing a JWT. CSRF can also be partially prevented by checking the HTTP Referer and Origin header from your API. CSRF attacks will have Referer and Origin headers that are unrelated to your application.
+
+Even though they are more secure to store your JWT, cookies can cause some developer headaches, depending on if your applications require cross-domain access to work. Just be aware that cookies have additional properties (Domain/Path) that can be modified to allow you to specify where the cookie is allowed to be sent. Using AJAX, your server side can also notify browsers whether credentials (including Cookies) should be sent with requests with CORS.
+Conclusion
+
+JWTs are an awesome authentication mechanism. They give you a structured way to declare users and what they can access. They can be encrypted and signed for to prevent tampering on the client side, but the devil is in the details and where you store them. Stormpath recommends that you store your JWT in cookies for web applications, because of the additional security they provide, and the simplicity of protecting against CSRF with modern web frameworks. HTML5 Web Storage is vulnerable to XSS, has a larger attack surface area, and can impact all application users on a successful attack.
+
+
+
+
+
+
+
+
+
+
+
+
+https://thinkster.io/tutorials/angularjs-jwt-auth
+What are JWTs
+
+JWTs provide a way for clients to authenticate every request without having to maintain a session or repeatedly pass login credentials to the server. A JWT consists of three main components: a header object, a claims object, and a signature. These three properties are encoded using base64, then concatenated with periods as separators. Some important things to know about JWT's:
+
+    The claims object contains an expiration date which dictates how long the token is valid for
+    The claims object can also contain custom bits of information such as a user ID
+    The token is NOT encrypted so anyone with it can read all the properties
+    The token IS signed by the server so if any of the values are changed, the server will reject it
+
+
+https://dzone.com/articles/cookies-vs-tokens-the-definitive-guide
+
+Cookies vs. Tokens: The Definitive Guide
+Tokens-based authentication is more relevant than ever. We examine the differences and similarities between cookie and token-based authentication, advantages of using tokens, and address common questions and concerns developers have regarding token-based auth. Finally, putting theory to practice, we'll build an application that uses token authentication and make it a progressive web app.
+
+
+
+We will be writing an Angular 2 app that uses JWT for authentication. Grab the Github repo if you would like to follow along.
+
+Our last article comparing cookie to token authentication was over two years ago. Since then, we've written extensively on how to integrate token authentication across many different languages and frameworks.
+
+The rise of single page applications (SPAs) and decoupling of the front-end from the back-end is in full force. Frameworks like Angular, React, and Vue allow developers to build bigger, better, and more performant single page applications than ever before. Token-based authentication goes hand in hand with these frameworks.
+
+
+Cookie vs. Token Authentication - Recap
+
+Before we dive further, let's quickly recap how these two authentication systems work. If you are already familiar with how cookie and token authentication works, feel free to skip this section, otherwise read on for an in-depth overview.
+
+This diagram is a great introduction and simplified overview of the difference between cookie and token approaches to authentication.
+
+
+Cookie-Based Authentication
+
+Cookie-based authentication has been the default, tried-and-true method for handling user authentication for a long time.
+
+Cookie-based authentication is stateful. This means that an authentication record or session must be kept both server and client-side. The server needs to keep track of active sessions in a database, while on the front-end a cookie is created that holds a session identifier, thus the name cookie based authentication. Let's look at the flow of traditional cookie-based authentication:
+
+    User enters their login credentials.
+    Server verifies the credentials are correct and creates a session which is then stored in a database.
+    A cookie with the session ID is placed in the users browser.
+    On subsequent requests, the session ID is verified against the database and if valid the request processed.
+    Once a user logs out of the app, the session is destroyed both client-side and server-side.
+
+Token-Based Authentication
+
+Token-based authentication has gained prevalence over the last few years due to the rise of single page applications, web APIs, and the Internet of Things (IoT). When we talk about authentication with tokens, we generally talk about authentication with JSON Web Tokens (JWTs). While there are different ways to implement tokens, JWTs have become the de-facto standard. With this context in mind, the rest of the article will use tokens and JWTs interchangeably.
+
+Token-based authentication is stateless. The server does not keep a record of which users are logged in or which JWTs have been issued. Instead, every request to the server is accompanied by a token which the server uses to verify the authenticity of the request. The token is generally sent as an addition Authorization header in the form of Bearer {JWT}, but can additionally be sent in the body of a POST request or even as a query parameter. Let's see how this flow works:
+
+    User enters their login credentials.
+    Server verifies the credentials are correct and returns a signed token.
+    This token is stored client-side, most commonly in local storage - but can be stored in session storage or a cookie as well.
+    Subsequent requests to the server include this token as an additional Authorization header or through one of the other methods mentioned above.
+    The server decodes the JWT and if the token is valid processes the request.
+    Once a user logs out, the token is destroyed client-side, no interaction with the server is necessary.
+
+Advantages of Token-Based Authentication
+
+Understanding how something works is only half the battle. Next, we'll cover the reasons why token authentication is preferable over the traditional cookie-based approach.
+Stateless, Scalable, and Decoupled
+
+Perhaps the biggest advantage to using tokens over cookies is the fact that token authentication is stateless. The back-end does not need to keep a record of tokens. Each token is self-contained, containing all the data required to check it's validity as well as convey user information through claims.
+
+The server's only job, then, becomes to sign tokens on a successful login request and verify that incoming tokens are valid. In fact, the server does not even need to sign tokens. Third party services such as Auth0 can handle the issuing of tokens and then the server only needs to verify the validity of the token.
+Cross Domain and CORS
+
+Cookies work well with singular domains and sub-domains, but when it comes to managing cookies across different domains, it can get hairy. In contrast, a token-based approach with CORS enabled makes it trivial to expose APIs to different services and domains. Since the JWT is required and checked with each and every call to the back-end, as long as there is a valid token, requests can be processed. There are a few caveats to this and we'll address those in the Common Questions and Concerns section below.
+Store Data in the JWT
+
+With a cookie based approach, you simply store the session id in a cookie. JWT's, on the other hand, allow you to store any type of metadata, as long as it's valid JSON. The JWT spec specifies different types of claims that can be included such as reserved, public and private. You can learn more about the specifics and the differences between the types of claims on the jwt.io website.
+
+In practice, what this means is that a JWT can contain any type of data. Depending on your use case you may choose to make the minimal amount of claims such as the user id and expiration of the token, or you may decide to include additional claims such as the user's email address, who issued the token, scopes or permissions for the user, and more.
+Performance
+
+When using the cookie-based authentication, the back-end has to do a lookup, whether that be a traditional SQL database or a NoSQL alternative, and the round trip is likely to take longer compared to decoding a token. Additionally, since you can store additional data inside the JWT, such as the user's permission level, you can save yourself additional lookup calls to get and process the requested data.
+
+For example, say you had an API resource /api/orders that retrieves the latest orders placed via your app, but only users with the role of admin have access to view this data. In a cookie based approach, once the request is made, you'd have one call to the database to verify that the session is valid, another to get the user data and verify that the user has the role of admin, and finally a third call to get the data. On the other hand, with a JWT approach, you can store the user role in the JWT, so once the request is made and the JWT verified, you can make a single call to the database to retrieve the orders.
+Mobile Ready
+
+Modern APIs do not only interact with the browser. Written properly a single API can serve both the browser and native mobile platforms like iOS and Android. Native mobile platforms and cookies do not mix well. While possible, there are many limitations and considerations to using cookies with mobile platforms. Tokens, on the other hand, are much easier to implement on both iOS and Android. Tokens are also easier to implement for Internet of Things applications and services that do not have a concept of a cookie store.
+Common Questions and Concerns
+
+In this section, we'll take a look at some common questions and concerns that frequently arise when the topic of token authentication comes up. The key focus here will be security but we'll examine use cases concerning token size, storage and encryption.
+JWT Size
+
+The biggest disadvantage of token authentication is the size of JWTs. A session cookie is relatively tiny compared to even the smallest JWT. Depending on your use case, the size of the token could become problematic if you add many claims to it. Remember, each request to the server must include the JWT along with it.
+Where to Store Tokens?
+
+With token-based auth, you are given the choice of where to store the JWT. Commonly, the JWT is placed in the browser's local storage and this works well for most use cases. There are some issues with storing JWTs in local storage to be aware of. Unlike cookies, local storage is sandboxed to a specific domain and its data cannot be accessed by any other domain including sub-domains.
+
+You can store the token in a cookie instead, but the max size of a cookie is only 4kb so that may be problematic if you have many claims attached to the token. Additionally, you can store the token in session storage which is similar to local storage but is cleared as soon as the user closes the browser.
+XSS and XSRF Protection
+
+Protecting your users and servers is always a top priority. One of the most common concerns developers have when deciding on whether to use token-based authentication is the security implications. Two of the most common attack vectors facing websites are Cross Site Scripting (XSS) and Cross-Site Request Forgery (XSRF or CSRF).
+
+Cross Site Scripting) attacks occur when an outside entity is able to execute code within your website or app. The most common attack vector here is if your website allows inputs that are not properly sanitized. If an attacker can execute code on your domain, your JWT tokens are vulnerable. Our CTO has argued in the past that XSS attacks are much easier to deal with compared to XSRF attacks because they are generally better understood. Many frameworks, including Angular, automatically sanitize inputs and prevent arbitrary code execution. If you are not using a framework that sanitizes input/output out-of-the-box, you can look at plugins like caja developed by Google to assist. Sanitizing inputs is a solved issue in many frameworks and languages and I would recommend using a framework or plugin vs building your own.
+
+Cross Site Request Forgery attacks are not an issue if you are using JWT with local storage. On the other hand, if your use case requires you to store the JWT in a cookie, you will need to protect against XSRF. XSRF are not as easily understood as XSS attacks. Explaining how XSRF attacks work can be time-consuming, so instead, check out this really good guide that explains in-depth how XSRF attacks work. Luckily, preventing XSRF attacks is a fairly simple matter. To over-simplify, protecting against an XSRF attack, your server, upon establishing a session with a client will generate a unique token (note this is not a JWT). Then, anytime data is submitted to your server, a hidden input field will contain this token and the server will check to make sure the tokens match. Again, as our recommendation is to store the JWT in local storage, you probably will not have to worry about XSRF attacks.
+
+One of the best ways to protect your users and servers is to have a short expiration time for tokens. That way, even if a token is compromised, it will quickly become useless. Additionally, you may maintain a blacklist of compromised tokens and not allow those tokens access to the system. Finally, the nuclear approach would be to change the signing algorithm, which would invalidate all active tokens and require all of your users to log in again. This approach is not easily recommended, but is available in the event of a severe breach.
+Tokens Are Signed, Not Encrypted
+
+A JSON Web Token is comprised of three parts: the header, payload, and signature. The format of a JWT is header.payload.signature. If we were to sign a JWT with the HMACSHA256 algorithm, the secret 'shhhh' and the payload of:
+
+{
+
+  "sub": "1234567890",
+
+  "name": "Ado Kukic",
+
+  "admin": true
+
+}
+
+The JWT generated would be:
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFkbyBLdWtpYyIsImFkbWluIjp0cnVlLCJpYXQiOjE0NjQyOTc4ODV9.Y47kJvnHzU9qeJIN48_bVna6O0EDFiMiQ9LpNVDFymM
+
+The very important thing to note here is that this token is signed by the HMACSHA256 algorithm, and the header and payload are Base64URL encoded, it is not encrypted. If I go to jwt.io, paste this token and select the HMACSHA256 algorithm, I could decode the token and read its contents. Therefore, it should go without saying that sensitive data, such as passwords, should never be stored in the payload.
+
+If you must store sensitive data in the payload or your use case calls for the JWT to be obscured, you can use JSON Web Encryption (JWE). JWE allows you to encrypt the contents of a JWT so that it is not readable by anyone but the server. JOSE provides a great framework and different options for JWE and has SDKs for many popular frameworks including NodeJS and Java.
+Token-Based Authentication in Action with Auth0
+
+Here at Auth0, we've written SDKs, guides, and quickstarts for working with JWTs for many languages and frameworks including NodeJS, Java, Python, GoLang, and many more. Our last "Cookies vs. Tokens" article used the AngularJS framework, so it's fitting to use Angular 2 for our code samples today.
+
+You can download the sample code from our GitHub repo. Downloading the code samples is preferable as Angular 2 requires a lot of initial setup to get going. If you haven't already, sign up for a free Auth0 account so you can do the implementation yourself and experiment with different features and options. Let's get started.
+Setting Up the Back-end Server
+
+We'll first set up our server. We'll build our server with NodeJS. The server will expose two APIs: /ping and /secured/ping. The first will be publicly available any anyone can access it, while the second requires you to be authenticated to call it. The implementation is below:
+
+// Include the modules needed for our server.
+
+var http = require('http');
+
+var express = require('express');
+
+var cors = require('cors');
+
+var app = express();
+
+var jwt = require('express-jwt');
+
+// Set up our JWT authentication middleware
+
+// Be sure to replace the YOUR_AUTH0_CLIENT_SECRET and
+
+// YOUR_AUTHO_CLIENT_ID with your apps credentials which
+
+// can be found in your management dashboard at 
+
+// https://manage.auth0.com
+
+var authenticate = jwt({
+
+  secret: new Buffer('YOUR_AUTH0_CLIENT_SECRET', 'base64'),
+
+  audience: 'YOUR_AUTH0_CLIENT_ID'
+
+});
+
+app.use(cors());
+
+// Here we have a public route that anyone can access
+
+app.get('/ping', function(req, res) {
+
+  res.send(200, {text: "All good. You don't need to be authenticated to call this"});
+
+});
+
+// We include the authenticate middleware here that will check for
+
+// a JWT and validate it. If there is a token and it is valid the
+
+// rest of the code will execute.
+
+app.get('/secured/ping', authenticate, function(req, res) {
+
+  res.send(200, {text: "All good. You only get this message if you're authenticated"});
+
+})
+
+var port = process.env.PORT || 3001;
+
+// We launch our server on port 3001.
+
+http.createServer(app).listen(port, function (err) {
+
+  console.log('listening in http://localhost:' + port);
+
+});
+
+This is a pretty standard Node/Express setup. The only unique thing we did was implement the express-jwt middleware which will validate a JWT. Since we are doing this integration with Auth0, we'll let Auth0 handle the process of generating and signing tokens. If we did not want to use Auth0, we could create and sign our own tokens with the jsonwebtoken module. Let's see an example of how this can be accomplished.
+
+// Import modules
+
+...
+
+var jwt = require('jsonwebtoken');
+
+var token = jwt.sign({ sub : "1234567890", name : "Ado Kukic", admin: true }, 'shhhh');
+
+app.get('/token', function(req, res){
+
+    res.send(token);
+
+});
+
+If we were to write this code, launch the server, and navigate to localhost:3001/token we would see a signed token containing the three claims we made. The jsonwebtoken module can also be used to verify and decrypt the tokens. To learn more about it, check out its repo. As we won't be generating tokens on our server, we can remove this code.
+Implementing the Front-end
+
+Next, we'll implement our Angular 2 app. If you are following along from our GitHub repo, you'll see two options for the front-end. One uses systemjs while the other Webpack for loading and managing our modules. As the preferred way to write Angular 2 apps is with TypeScript, we'll build our sample app with TypeScript. For our demo, we'll be working out of the systemjs directory. Additionally, we'll be using the angular2-jwt library which provides helper methods for making requests with the correct headers and also checking to see if a valid token exists.
+
+First things first. We need an entry point into our app and that is index.html.
+
+<html>
+
+  <head>
+
+    <base href="/">
+
+    <title>Angular 2 Playground</title>
+
+      <meta charset="UTF-8">
+
+     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+
+     <!-- We'll include the Auth0 Lock widget to handle authentication -->
+
+     <script src="//cdn.auth0.com/js/lock-9.0.min.js"></script>
+
+    <script src="node_modules/es6-shim/es6-shim.min.js"></script>
+
+    <script src="node_modules/zone.js/dist/zone.js"></script>
+
+    <script src="node_modules/reflect-metadata/Reflect.js"></script>
+
+    <script src="node_modules/systemjs/dist/system.src.js"></script>
+
+    <script src="systemjs.config.js"></script>
+
+    <script>
+
+      System.import('app').catch(function(err){ console.error(err); });
+
+    </script>
+
+  </head>
+
+  <body>
+
+    <app>Loading...</app>
+
+  </body>
+
+</html>
+
+Next, we'll define the entry point of our Angular 2 application. This will be done in a file called main.ts.
+
+import { bootstrap } from '@angular/platform-browser-dynamic';
+
+import {provide} from '@angular/core';
+
+import {LocationStrategy, HashLocationStrategy} from '@angular/common';
+
+import {RouteConfig, ROUTER_PROVIDERS, ROUTER_DIRECTIVES} from '@angular/router-deprecated';
+
+import {HTTP_PROVIDERS} from '@angular/http';
+
+// Here we load the angular2-jwt library
+
+import {AUTH_PROVIDERS} from 'angular2-jwt';
+
+import { App } from './app.component';
+
+bootstrap(App, [
+
+  HTTP_PROVIDERS,
+
+  ROUTER_PROVIDERS,
+
+  AUTH_PROVIDERS,
+
+  provide(LocationStrategy, { useClass: HashLocationStrategy })
+
+])
+
+We'll build the auth.service.ts next. This service will provide methods for logging users in and out of our application. Be sure to replace the YOUR_CLIENT_ID and YOUR_DOMAIN with your apps settings from your Auth0 management dashboard.
+
+import {Injectable, NgZone} from '@angular/core';
+
+import {Router} from '@angular/router-deprecated';
+
+import {AuthHttp, tokenNotExpired} from 'angular2-jwt';
+
+// Avoid name not found warnings
+
+declare var Auth0Lock: any;
+
+@Injectable()
+
+export class Auth {
+
+  // Replace YOUR_CLIENT_ID and YOUR_DOMAIN with your credentials
+
+  lock = new Auth0Lock('YOUR_CLIENT_ID', 'YOUR_DOMAIN');
+
+  refreshSubscription: any;
+
+  user: Object;
+
+  zoneImpl: NgZone;
+
+  constructor(private authHttp: AuthHttp, zone: NgZone, private router: Router) {
+
+    this.zoneImpl = zone;
+
+    this.user = JSON.parse(localStorage.getItem('profile'));
+
+  }
+
+  public authenticated() {
+
+    // Check if there's an unexpired JWT
+
+    return tokenNotExpired();
+
+  }
+
+  public login() {
+
+    // Show the Auth0 Lock widget
+
+    this.lock.show({}, (err, profile, token) => {
+
+      if (err) {
+
+        alert(err);
+
+        return;
+
+      }
+
+      // If authentication is successful, save the items
+
+      // in local storage
+
+      localStorage.setItem('profile', JSON.stringify(profile));
+
+      localStorage.setItem('id_token', token);
+
+      this.zoneImpl.run(() => this.user = profile);
+
+    });
+
+  }
+
+  public logout() {
+
+    localStorage.removeItem('profile');
+
+    localStorage.removeItem('id_token');
+
+    this.zoneImpl.run(() => this.user = null);
+
+    this.router.navigate(['Home']);
+
+  }
+
+}
+
+Now that we have the foundation complete. We can start building our application. We'll build our root component in a file called app.component.ts.
+
+import {Component} from '@angular/core';
+
+import {RouteConfig, ROUTER_PROVIDERS, ROUTER_DIRECTIVES} from '@angular/router-deprecated';
+
+import {HTTP_PROVIDERS} from '@angular/http';
+
+import {AUTH_PROVIDERS} from 'angular2-jwt';
+
+import {Home} from './home.component';
+
+import {Ping} from './ping.component';
+
+import {Profile} from './profile.component';
+
+import {Auth} from './auth.service';
+
+@Component({
+
+  selector: 'app',
+
+  providers: [ Auth ],
+
+  directives: [ ROUTER_DIRECTIVES ],
+
+  templateUrl: 'src/app.template.html',
+
+  styles: [`.btn-margin { margin-top: 5px}`]
+
+})
+
+@RouteConfig([
+
+  { path: '/home',  name: 'Home',  component: Home, useAsDefault: true },
+
+  { path: '/ping',  name: 'Ping',  component: Ping },
+
+  { path: '/profile',  name: 'Profile',  component: Profile }
+
+])
+
+export class App {
+
+  constructor(private auth: Auth) {}
+
+}
+
+You may notice from our directive metadata that we will be loading an external template called app.template.html. Angular 2 templates can be inlined or reference an external file and since our template is on the longer side, we'll place it in an external file.
+
+<nav class="navbar navbar-default">
+
+  <div class="container-fluid">
+
+    <div class="navbar-header">
+
+      <a class="navbar-brand" href="#">Auth0 - Angular 2</a>
+
+      <button class="btn btn-primary btn-margin" [routerLink]=" ['Home'] ">Home</button>
+
+      <button class="btn btn-primary btn-margin" [routerLink]=" ['Ping'] ">Ping</button>
+
+      <button class="btn btn-primary btn-margin" [routerLink]=" ['Profile'] " *ngIf="auth.authenticated()">Profile</button>
+
+      <button class="btn btn-primary btn-margin" (click)="auth.login()" *ngIf="!auth.authenticated()">Log In</button>
+
+      <button class="btn btn-primary btn-margin" (click)="auth.logout()" *ngIf="auth.authenticated()">Log Out</button>
+
+    </div>
+
+  </div>
+
+</nav>
+
+<main class="container">
+
+  <router-outlet></router-outlet>
+
+</main>
+
+From our app.template.html file, we see that we will end up having three routes: Home, Ping, and Profile. Additionally, there are two more buttons, Log In and Log Out. The *ngIf directive conditionally displays some routes based on whether the user is authenticated or not. Let's build out the three routes.
+Home Component
+
+The home component is the default route loaded. It is publicly accessible.
+
+import {Component} from '@angular/core';
+
+@Component({
+
+  selector: 'home',
+
+  template: `
+
+    <h1>Welcome to auth0-angular2</h1>
+
+    <p>
+
+      This repo shows you how to set up authentication in your Angular 2 apps with Auth0.
+
+      Get started by providing your Auth0 client ID and domain in the Auth0Lock widget in <code>auth/auth.service.ts</code>.
+
+    </p>
+
+  `
+
+})
+
+export class Home {
+
+  constructor() {}
+
+}
+
+Ping Component
+
+The ping component interacts with our NodeJS server that we built earlier. The Node server will need to be running for you to access these routes.
+
+import {Component} from '@angular/core';
+
+import {Http} from '@angular/http';
+
+import {AuthHttp} from 'angular2-jwt';
+
+import {Auth} from './auth.service';
+
+import 'rxjs/add/operator/map';
+
+@Component({
+
+  selector: 'ping',
+
+  template: `
+
+    <h1>Send a Ping to the Server</h1>
+
+    <p *ngIf="!auth.authenticated()">Log In to Get Access to a Secured Ping</p>
+
+    <button class="btn btn-primary" (click)="ping()">Ping</button>
+
+    <button class="btn btn-primary" (click)="securedPing()" *ngIf="auth.authenticated()">Secured Ping</button>
+
+    <h2></h2>
+
+  `
+
+})
+
+export class Ping {
+
+  API_URL: string = 'http://localhost:3001';
+
+  message: string;
+
+  constructor(private http: Http, private authHttp: AuthHttp, private auth: Auth) {}
+
+  ping() {
+
+    this.http.get(`${this.API_URL}/ping`)
+
+      .map(res => res.json())
+
+      .subscribe(
+
+        data => this.message = data.text,
+
+        error => this.message = error._body
+
+      );
+
+  }
+
+  securedPing() {
+
+    this.authHttp.get(`${this.API_URL}/secured/ping`)
+
+      .map(res => res.json())
+
+      .subscribe(
+
+        data => this.message= data.text,
+
+        error => this.message = error._body
+
+      );
+
+  }
+
+}
+
+Profile Component
+
+The profile component displays user data for the currently logged in user. This component can only be accessed by a logged in user.
+
+import {Component} from '@angular/core';
+
+import {CanActivate} from '@angular/router-deprecated';
+
+import {tokenNotExpired} from 'angular2-jwt';
+
+import {Auth} from './auth.service';
+
+@Component({
+
+  selector: 'profile',
+
+  template: `
+
+    <h1>Profile</h1>
+
+    <img [src]="auth.user.picture">
+
+    <h2></h2>
+
+    <span></span>
+
+  `
+
+})
+
+@CanActivate(() => tokenNotExpired())
+
+export class Profile {
+
+  constructor(private auth: Auth) {}
+
+}
+
+With the three components built, we are ready to launch our app. If you are using the provided GitHub repo, you can simply run gulp play and your code will be transpiled into JavaScript and the application will launch at localhost:9000. If you did not use the GitHub repo, you will need to transpile the typescript or change the systemjs configuration to load typescript files instead.
+
+
+You can navigate to the Ping tab and click the "Ping" button to make a call to your Node API and it will display the correct message. If you click on the Login button you will be prompted to log in using the Auth0 Lock widget. Upon successfully authenticating, you will be able to view your Profile, log out, and have the ability to call a Secured Ping from the Ping tab.
+Progressive Web Apps
+
+The last topic I want to cover before we close out this article is Progressive Web Apps. Progressive Web Apps allow your web based application to behave more like a native mobile iOS or Android app. Progressive Web Apps bring many advantages including increased performance, are "installable" on mobile devices, and can work offline.
+
+Angular 2, through its Mobile Toolkit, makes it easy to transform your Angular 2 app into a Progressive Web App. There are many components that can make your app more progressive, the one we'll look at today is the webapp manifest. This manifest is simply a file, similar to package.json for example, where you define specifics for your application. When your website is accessed on a mobile device, this manifest can be read and based on the information inside certain actions taken like setting the app name or setting the orientation of the app. Let's look at an app manifest, which is titled manifest.webapp and see which options we can set:
+
+ {
+
+   "name": "Auth0 Angular 2 App",
+
+   "short_name": "A0 Angular 2 App",
+
+   "icons": [
+
+     {
+
+             "src": "/android-chrome-36x36.png",
+
+             "sizes": "36x36",
+
+             "type": "image/png",
+
+             "density": 0.75
+
+         },
+
+         {
+
+             "src": "/android-chrome-48x48.png",
+
+             "sizes": "48x48",
+
+             "type": "image/png",
+
+             "density": 1
+
+         },
+
+         {
+
+             "src": "/android-chrome-72x72.png",
+
+             "sizes": "72x72",
+
+             "type": "image/png",
+
+             "density": 1.5
+
+         },
+
+         {
+
+             "src": "/android-chrome-96x96.png",
+
+             "sizes": "96x96",
+
+             "type": "image/png",
+
+             "density": 2
+
+         },
+
+         {
+
+             "src": "/android-chrome-144x144.png",
+
+             "sizes": "144x144",
+
+             "type": "image/png",
+
+             "density": 3
+
+         },
+
+         {
+
+             "src": "/android-chrome-192x192.png",
+
+             "sizes": "192x192",
+
+             "type": "image/png",
+
+             "density": 4
+
+         }
+
+   ],
+
+   "theme_color": "#000000",
+
+   "background_color": "#e0e0e0",
+
+   "start_url": "/index.html",
+
+   "display": "standalone",
+
+   "orientation": "portrait"
+
+ }
+
+Conclusion
+
+In today's article we compared the differences between cookie- and token-based authentication. We highlighted the advantages and concerns of using tokens and also wrote a simple app to showcase how JWT works in practice. There are many reasons to use tokens and Auth0 is here to ensure that implementing token authentication is easy and secure. Finally, we introduced Progressive Web Apps to help make your web applications feel more native on mobile devices. Sign up for a free account today and be up and running in minutes.
+
+
+
+
+
+
+
+
+
+
+
+
+https://www.sitepoint.com/user-authentication-mean-stack/
+The MEAN Stack Authentication Flow
+
+So what does authentication look like in the MEAN stack?
+
+Still keeping this at a high level, these are the components of the flow:
+
+    User data is stored in MongoDB, with the passwords hashed
+    CRUD functions are built in an Express API – Create (register), Read (login, get profile), Update, Delete
+    An Angular application calls the API and deals with the responses
+    The Express API generates a JSON Web Token (JWT, pronounced “Jot”) upon registration or login, and passes this to the Angular application
+    The Angular application stores the JWT in order to maintain the user’s session
+    The Angular application checks the validity of the JWT when displaying protected views
+    The Angular application passes the JWT back to Express when calling protected API routes
+
+JWTs are preferred over cookies for maintaining the session state in the browser; cookies are better for maintaining state when using a server-side application.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+In my last blog post we wrote an Spring Boot application which provided some RESTful web services only callable by authenticated clients. Now we will create the client part in form of an Angular2 single page application. The only not secured web service on the server is the LoginRestController. We will call this web service with some credentials and if the authentication was successful, the web service will return an JSON Web Tokens (JWT). For all subsequent REST calls from our Angular2 app, this JWT needs to be provided. If the JWT is still valid, the server will interpret this calls as authenticated.
+A full working example could be found at https://github.com/nerdcoding/angular2-spring-boot. This example consists of the Spring Boot server application and the Angular2 client described in this tutorial. You can ignore the server application if you are only interested in the client part.
+How JSON Web Token (JWT) works
+A RESTful web service allows manipulation of resources by a defined set of stateless operations. Because of the stateless aspect all information regarding to a session state are hold on the client. The client need to manage all session information by itself and with any service request necessary information have to be provided in that request. That means there is never some form of server side session.
+But how the server is able to distinguish between authenticated and not-authenticated users? That’s were the JSON Web Token (JWT) comes into play. JWT is an open standard (RFC 7519) that defines a token which could be transferred between two parties. In our case the client provides normal login form and with the entered username and password the LoginRestController is called. If the provided credentials are valid, the web service will return with an JWT. We need to store this token and use it for all subsequent web service calls.
+Login component
+The login is done with an standard Angular2 component. We define a HTML form with input fields for username and password.
+login.html
+<form [formGroup]="form" (ngSubmit)="login()" novalidate>
+
+   <div class="form-group">
+       <label for="inputUserName" class="sr-only control-label">User name</label>
+       <input type="userName" id="inputUserName" class="form-control" placeholder="user name"
+              formControlName="userName" autofocus>
+       <div [hidden]="form.get('userName').untouched
+                        || !form.hasError('required', 'userName')"
+            class="alert alert-danger">
+           Please enter a valid user name
+       </div>
+   </div>
+
+   <div class="form-group">
+       <label for="inputPassword" class="sr-only">Password</label>
+       <input type="password" id="inputPassword" class="form-control" placeholder="Password"
+              formControlName="password">
+       <div [hidden]="form.get('password').untouched
+                        || !form.hasError('required', 'password')"
+            class="alert alert-danger">
+           Password is required
+       </div>
+   </div>
+
+   <button class="btn btn-lg btn-primary btn-block" type="submit">Log in</button>
+</form>
+The associated login.component.ts takes the provided username and password during a form submit and makes an HTTP POST to the the servers RESTful web service LoginRestController. If the authentication was successful, the server sends a new JSON Web Token (JWT) in the response and we save this token in the HTML local storage.
+login.component.ts
+@Component({
+  templateUrl: './app/components/login/login.html'
+})
+export class LoginComponent {
+
+  private serverUrl = 'http://127.0.0.1:8080/';
+
+  private form: FormGroup;
+
+  constructor(private router: Router, private http: Http) {
+      this.form = new FormGroup({
+          'userName': new FormControl('', Validators.required),
+          'password': new FormControl('', Validators.required)
+      });
+  }
+
+  login() {
+      console.log(this.form.value);
+      if (this.form.valid) {
+          this.http.post(this.serverUrl + '/login',
+                    { "username": this.form.value.userName,
+                      "password": this.form.value.password })
+              .toPromise()
+              .then(response => {
+                  var jwToken = response.json().jwtToken;
+                  localStorage.setItem('id_token', jwToken);
+
+                  this.router.navigate(['overview']);
+              }).catch(this.handleError);
+      }
+  }
+angular2-jwt
+After an successful authentication, the JSON Web Token (JWT) is available in the clients local storage. For all subsequent requests to the server we need to provide this token into an HTTP request header. This could be done with angular2-jwt.
+angular2-jwt is a small helper library which helps us to work with JWT. The installation could be done with an simple:
+npm install angular2-jwt --save
+Anymore angular2-jwt needs to be mapped in the systemjs.config.js:
+systemjs.config.ts
+map: {
+    [...]
+    'angular2-jwt':              'node_modules/angular2-jwt/angular2-jwt.js'
+}
+In the module configuration we also configure how angular2-jwt should find and handle the JWT:
+app.module.ts
+    providers: [
+
+        [...]
+
+        provideAuth({
+            headerName: 'X-AUTH-TOKEN', (1)
+            headerPrefix: ' ',
+            tokenName: 'id_token',
+            tokenGetter: (() => localStorage.getItem('id_token')),  (2)
+            globalHeaders: [{'Content-Type': 'application/json'}],
+            noJwtError: false,
+            noTokenScheme: false
+        })
+    ]
+When a RESTful resource is called we need to send the JSON Web Token inside of an HTTP header. Here we define that the name of this header should be X-AUTH-TOKEN.
+Our login.component.ts saved the JWT inside of the HTML local store with the key id_token. Here we tell angular2-jwt where this token could be found.
+Finally we need to add AuthHttp provided by angular2-jwt. Each HTTP requests needs to send the JWT inside of an HTTP header. For all HTTP requests we do not use Angular2 default HTTP class, but the AuthHttp. This class will find the token in the local storage and send it with an HTTP header. Therefore each of our serves which make the actual HTTP requests need to use AuthHttp.
+person.service.ts
+import {AuthHttp} from "angular2-jwt";
+
+@Injectable()
+export class PersonService {
+
+    private url = 'http://127.0.0.1:8080/persons';
+
+    constructor(public authHttp: AuthHttp) {}
+
+    getPersons(): Promise<Person[]> {
+        return this.authHttp.get(this.url)
+            .toPromise()
+            .then(response => response.json() as Person[])
+            .catch(this.handleError);
+    }
+}
+Routing
+When there is no valid JWT in our local storage the server will responds to each HTTP requests with an 401. To prevent that our client sends requests when we are not logged in, we configure our routing to always navigate to the login component.
+To check if we are logged in, that means if an valid JWT exists, we can write a small Angular2 service.
+person.service.ts
+@Injectable()
+export class AuthGuard implements CanActivate {
+
+    constructor(private router: Router) {}
+
+    canActivate(next: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
+        if (tokenNotExpired()) {
+            return true;
+        }
+
+        this.router.navigate(['login']);
+        return false;
+    }
+}
+In this service we implement the CanActive interface. With the help of this interface the Angular2 router can decide if an route is accessible. The canActivate() methods checks if there is a valid JWT, and if not we always navigate to the login component. In the routing configuration we set the AuthGuard at each route.
+app.routing.ts
+const routes: Routes = [
+    {
+        path: '',
+        redirectTo: '/overview',
+        pathMatch: 'full'
+    },
+    {
+        path: 'login',
+        component: LoginComponent,
+    },
+    {
+        path: 'overview',
+        component: PersonOverviewComponent,
+        canActivate: [AuthGuard]
+    },
+    [...]
+];
+export const routing = RouterModule.forRoot(routes);
+
+
+
+
+
+
+
+
+
+
+
+

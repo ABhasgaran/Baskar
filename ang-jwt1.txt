@@ -1,0 +1,817 @@
+https://auth0.com/docs/quickstart/spa/angular2/03-session-handling
+Angular 2 Session Handling
+In the previous steps of this tutorial, we enabled user login with the Lock widget and then with auth0.js.
+
+In this step, we will create a session for the user and also allow them to log out.
+Create Session
+
+Once the user is authenticated, we need to create a client-side session for them so that our Angular 2 app knows that they are currently authenticated. To do this, we need to store the value of the id_token attribute that is returned in the Lock authenticated callback parameter.
+
+NOTE: This example uses localStorage, but you can use any storage library.
+
+// auth.service.ts
+
+@Injectable()
+export class Auth {
+  // Configure Auth0
+  lock = new Auth0Lock('YOUR_CLIENT_ID', 'YOUR_AUTH0_DOMAIN', {});
+
+  constructor() {
+    // Add callback for lock `authenticated` event
+    this.lock.on("authenticated", (authResult) => {
+      localStorage.setItem('id_token', authResult.idToken);
+    });
+  }
+  // ...
+}
+
+Check Session
+
+To check if a user is authenticated, we can use tokenNotExpired from angular2-jwt which allows us to check whether the user's JWT is expired or not. Since JWT is a "stateless" manner of doing user authentication, the best way to know if the user should be regarded as authenticated on the front end is to know whether the token is unexpired.
+
+// auth.service.ts
+
+import { tokenNotExpired } from 'angular2-jwt';
+
+// ...
+public authenticated() {
+  // Check if there's an unexpired JWT
+  // It searches for an item in localStorage with key == 'id_token' by default
+  return tokenNotExpired();
+}
+
+To use this service, inject Auth into your component:
+
+// app/app.component.ts
+
+@Component({
+    selector: 'my-app',
+    providers: [ Auth ],
+    templateUrl: 'app/app.template.html'
+})
+
+export class AppComponent {
+  constructor(private auth: Auth) {}
+}
+
+and then use it in your component's template:
+
+  <!-- app/app.template.html -->
+  <div class="navbar-header">
+    <a class="navbar-brand" href="#">Auth0 - Angular 2</a>
+    <button class="btn btn-primary btn-margin" (click)="auth.login()" *ngIf="!auth.authenticated()">Log In</button>
+    <button class="btn btn-primary btn-margin" (click)="auth.logout()" *ngIf="auth.authenticated()">Log Out</button>
+  </div>
+
+Logout
+
+Since authentication with JWT is stateless, the only thing necessary for logging the user out is to remove their token from storage.
+
+// auth.service.ts
+
+// ...
+public logout() {
+  // Remove token from localStorage
+  localStorage.removeItem('id_token');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+https://medium.com/@blacksonic86/authentication-in-angular-2-958052c64492#.dxxgbsjr9
+// app.component.ts
+import { Component } from '@angular/core';
+import { RouteConfig, RouterOutlet } from '@angular/router-deprecated';
+
+import { HomeComponent } from './home.component';
+import { LoginComponent } from './login.component';
+import { ProfileComponent } from './profile.component';
+
+@Component({
+  selector: 'auth-app',
+  directives: [RouterOutlet],
+  template: `
+  <div class="container body-container">
+    <router-outlet></router-outlet>
+  </div>
+  `
+})
+@RouteConfig([
+  { path: '/', component: HomeComponent, name: 'Home', useAsDefault: true },
+  { path: '/login', component: LoginComponent, name: 'Login' },
+  { path: '/profile', component: ProfileComponent, name: 'Profile' }
+])
+export class AppComponent {}
+
+The setup
+
+Our application will consist of 3 components associated with a route. The first one is the public homepage with static content. We need another component for logging in with given credentials. And last a component that is only available to those who already logged in.
+
+Here is our AppComponent which will be passed to the bootstrap function. With @RouteConfig decorator we can tell the application that these routes exist with given urls and components. It is important to give them names, because later we will use them as references redirecting to another page.
+
+To make routing work one more thing is needed, the RouterOutlet directive. This will be the place where Angular renders the current components output based on the url.
+Authentication
+
+Our application works fine, but everyone can access every page. We need to get an authentication token to restrict it. This logic can be put into a service and become available to every part of the application through dependency injection. If you don’t know how dependency injection works in Angular there is a good article about it in the official documentation.
+
+/ user.service.ts
+import { Injectable } from '@angular/core';
+import { Http, Headers } from '@angular/http';
+import localStorage from 'localStorage';
+
+@Injectable()
+export class UserService {
+  private loggedIn = false;
+
+  constructor(private http: Http) {
+    this.loggedIn = !!localStorage.getItem('auth_token');
+  }
+
+  login(email, password) {
+    let headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+
+    return this.http
+      .post(
+        '/login', 
+        JSON.stringify({ email, password }), 
+        { headers }
+      )
+      .map(res => res.json())
+      .map((res) => {
+        if (res.success) {
+          localStorage.setItem('auth_token', res.auth_token);
+          this.loggedIn = true;
+        }
+
+        return res.success;
+      });
+  }
+  
+  logout() {
+    localStorage.removeItem('auth_token');
+    this.loggedIn = false;
+  }
+
+  isLoggedIn() {
+    return this.loggedIn;
+  }
+}
+
+
+Our UserService consists of 3 main methods. The first is the login to authenticate with an email address and a password. We will use it in the login component and based on it’s result redirect to the home page and store the received token from the server. The isLoggedIn method will be important when we restrict access to the profile page, showing the current authentication state.
+
+The UserService needs the @Injectable decorator to access the Http service and with it send the login credentials (email, password) to the server (/login). By default the content type is plain/text and we need to set it with the help of Headers to application/json. Listening to the response of a HTTP call is a bit different from Angular 1. We get an RxJS observable object instead of a promise. Just as with promises we can listen to it’s result, the subscribe method will take the place of the promise’s then method.
+
+We won’t simply pass the raw response to the components, we will transform it to a boolean value and while doing it, check it’s result. The backend service generates a unique token for us, what we can use for authentication of our requests. If the backend process is successful, we store the authentication token in LocalStorage and save the state in the service to the loggedIn property.
+
+/ login.component.ts
+import { Component } from '@angular/core';
+import { Router } from '@angular/router-deprecated';
+
+import { UserService } from './user.service';
+
+@Component({
+  selector: 'login',
+  template: `...`
+})
+export class LoginComponent {
+  constructor(private userService: UserService, private router: Router) {}
+
+  onSubmit(email, password) {
+    this.userService.login(email, password).subscribe((result) => {
+      if (result) {
+        this.router.navigate(['Home']);
+      }
+    });
+  }
+}
+
+In our LoginComponent we listen to the result of the login and after a successful login, we redirect the user to the home page. As you can see we reference the route by it’s @RouteConfig name declared before.
+Restricting access
+
+Now that we are able to log in, it is time to restrict access to the profile page only to logged in users. To accomplish this we will take a look at our RouterOutlet.
+
+When Angular loads the component of the route the RouterOutlet’s activate function is called with the actual Instruction. The Instruction describes information for the router how to transition to the next component. From it we can extract the current url and based on it redirect the user when trying to access a restricted page without logging in.
+
+// logged-in-router-outlet.ts
+import { 
+  ElementRef, DynamicComponentLoader, AttributeMetadata, Directive, Attribute 
+} from '@angular/core';
+import { Router, RouterOutlet, ComponentInstruction } from '@angular/router-deprecated';
+
+import { UserService } from './user.service';
+
+@Directive({
+  selector: 'router-outlet'
+})
+export class LoggedInRouterOutlet extends RouterOutlet {
+  publicRoutes: Array;
+  private parentRouter: Router;
+  private userService: UserService;
+
+  constructor(
+    _elementRef: ElementRef, _loader: DynamicComponentLoader,
+    _parentRouter: Router, @Attribute('name') nameAttr: string,
+    private userService: UserService
+  ) {
+    super(_elementRef, _loader, _parentRouter, nameAttr);
+
+    this.router = _parentRouter;
+    this.publicRoutes = ['', 'login', 'signup'];
+  }
+
+  activate(instruction: ComponentInstruction) {
+    if (this._canActivate(instruction.urlPath)) {
+      return super.activate(instruction);
+    }
+
+    this.router.navigate(['Login']);
+  }
+
+  _canActivate(url) {
+    return this.publicRoutes.indexOf(url) !== -1 || this.userService.isLoggedIn();
+  }
+}
+
+When extending the built in RouterOutlet we can extend it’s constructor with one additional parameter, the UserService. It can provide whether the user is logged in and combining it with the list of public urls we can decide which navigations are allowed in the _canActivate method.
+
+When we navigate in our application the next component gets instantiated and the activate method of the RouterOutlet gets called with the current ComponentInstruction. From the instruction we can easily get the current url and based on it decide if we should redirect the user to the login page. If everything is okay we just pass the instruction to the parent method and the application displays the component.
+
+And with this step we secured every non public page in the application, no need to manually add it to every restricted component. Just need to pass our new class instead of the built-in one.
+
+// app.component.ts
+...
+import { LoggedInRouterOutlet } from './logged-in-router-outlet';
+
+@Component({
+  selector: 'auth-app',
+  directives: [LoggedInRouterOutlet],
+  template: `
+  <div class="container body-container">
+    <router-outlet></router-outlet>
+  </div>
+  `
+})
+@RouteConfig(...)
+export class AppComponent {}
+
+The only thing can be a bit weird of this approach is depending on an array of urls instead of lifecycle events or route configuration.
+
+To see this solution in action check this Github repository.
+Restricting again
+
+Angular gives us another way of restricting access to page components and it can be accomplished with the @CanActivate router lifecycle decorator. Before activating the component the function passed to the @CanActivate decorator gets resolved by the router (can return promises also) and if the return value is false, the component won’t get activated.
+
+// user.service.ts
+export function isLoggedIn() {
+  return !!storage.getAuthToken();
+}
+
+// profile.component.ts
+import { Component } from '@angular/core';
+import { CanActivate } from '@angular/router-deprecated';
+
+import { isLoggedIn } from './user.service';
+
+@Component({
+  selector: 'profile',
+  template: `...`
+})
+@CanActivate(isLoggedIn)
+export class ProfileComponent {}
+
+
+This way we have to manually decorate the components we want to restrict, but it can be added not only to page level components but subcomponents also.
+
+A serious drawback of this feature for now in version beta.8 is that dependency injection is not available inside this function. We can’t access the UserService or the Router to redirect the user. There is also an ongoing issue for this on Github.
+
+To access the DI we need a bit of hack for this to work. When we bootstrap our application it returns a promise which will be resolved with the application’s DI injector and through this if we cache it, we can access the objects inside it.
+
+// app-injector.ts
+import { Injector } from '@angular/core';
+
+let appInjectorRef: Injector;
+export const appInjector = (injector?: Injector):Injector => {
+  if (injector) {
+    appInjectorRef = injector;
+  }
+
+  return appInjectorRef;
+};
+
+
+// boot.ts
+import { bootstrap } from '@angular/platform-browser-dynamic';
+import { ComponentRef } from '@angular/core';
+import { HTTP_PROVIDERS } from '@angular/http';
+import { ROUTER_PROVIDERS } from '@angular/router-deprecated';
+
+import { AppComponent } from './app.component';
+import { UserService } from './user.service';
+import { appInjector } from './app-injector';
+
+bootstrap(AppComponent, [
+  UserService,
+  HTTP_PROVIDERS,
+  ROUTER_PROVIDERS
+]).then((appRef: ComponentRef) => {
+  // store a reference to the application injector
+  appInjector(appRef.injector);
+});
+
+After this bootstrap we can import the appInjector inside the isLoggedIn function and redirect, when the user is not logged in as we did when extending the RouterOutlet. A working application is available with this solution in this Plunkr.
+
+Note: The @CanActivate lifecycle hook can also be used with extension, thanks to Tamás Csaba for the tip.
+
+
+// can-activate-private-metadata.ts
+import { Router } from '@angular/router-deprecated';
+import { makeDecorator } from '@angular/core/src/util/decorators';
+import { CanActivate as CanActivateMetadata } 
+  from '@angular/router-deprecated/src/lifecycle/lifecycle_annotations_impl';
+
+import { appInjector } from './app-injector';
+import { UserService } from './user.service';
+
+class PrivateMetadata extends CanActivateMetadata {
+    constructor() {
+        super((next, prev) => {
+            let injector = appInjector();
+            if (!injector.get(UserService).isLoggedIn()) {
+                injector.get(Router).navigate(['Login']);
+                return false;
+            }
+            return true;
+        });
+    }
+}
+export const CanActivatePrivateMetadata = makeDecorator(PrivateMetadata);
+
+It is important to note that the solutions don’t play well with each other. The reason is when using @CanActive decorator and it resolves false, the activate method of the RouterOutlet won’t be called.
+Final step
+
+The non public pages are now restricted on the client with one of the solutions. The one thing that remains is to send authenticated requests to the server.
+
+// profile.service.ts
+import { Injectable } from '@angular/core';
+import { Http, Headers } from '@angular/http';
+import localStorage from 'localStorage';
+
+@Injectable()
+export class ProfileService {
+  constructor(private http: Http) {}
+
+  getProfile() {
+    let headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+    let authToken = localStorage.getItem('auth_token');
+    headers.append('Authorization', `Bearer ${authToken}`);
+
+    return this.http
+      .get('/profile', { headers })
+      .map(res => res.json());
+  }
+}
+
+
+We are doing nearly the same we did with the UserService. Add the @Injectable decorator, pass in the HttpService and call the endpoint. The difference is that we add our authentication token we stored before in the UserService and send it in the Authorization header. With it the backend can check our identity, authenticate us and provide the content we asked for. Otherwise we would get a 401 Unauthorized error message.
+Wrapping up
+
+With some simple steps we authenticated our users, restricted access to pages and sent authenticated requests to the server back. Either way we go for restricting access to pages, both works, but till dependency injection is solved for the @CanActivate decorator I would go with extending the RouterOutlet.
+
+Most of the applications we build require some kind of authentication. In this tutorial I’ll show you how to build a simple application that uses routing and authentication. We will build a service that handles HTTP calls and stores JWT authentication tokens on the client to restrict access to pages and attach the token to authenticated HTTP calls.
+
+The tutorial will only cover the frontend concepts, we will assume a backend exists. If you are not familiar with JWT tokens I would suggest reading this introduction first.
+
+
+
+
+
+
+
+
+
+
+
+
+http://jasonwatmore.com/post/2016/08/16/angular-2-jwt-authentication-example-tutorial
+https://github.com/cornflourblue/angular2-jwt-authentication-example
+
+ Easy Angular Authentication with JSON Web Tokens
+Stateless authentication is a great fit for Angular apps. In this post, guest-blogger Ryan Chenkie from Auth0 talks about implementing it using JSON Web Tokens. -- Victor Savkin
+
+
+    TL;DR: Single page apps--like the ones we build with Angular--present a few challenges when it comes to authentication. In general, traditional session-based authentication isn't a good fit for SPAs that use data APIs because it necessitates state on the server. A better way to do authentication in Angular apps (and SPAs in general) is with JSON Web Tokens (JWTs). Read on to find out more about JWTs, or check out Angular 2 Tour of Secret Heroes to see an example of a full Angular 2 app with user authentication.
+
+Pretty well all non-trivial applications require some way of dealing with user authentication and authorization. This can be fairly straight-forward in round-trip applications because all that is really needed when a user logs in is to check their credentials against a database, save a session for them on the server, and return a cookie to be saved in their browser. The cookie is then sent along in subsequent requests to the server and is checked against the session to verify their identity.
+This works well for "traditional" applications, but it isn't a great fit for single page apps that use data APIs. Since SPAs are client-side apps, dealing with the notion of the user's authentication state is also a bit trickier. Essentially what it boils down to is that we need some indication of the user's authentication state even though the backends that we rely on should remain stateless. This isn't a problem in round-trip apps because the HTML and data that get returned to the user is constructed on the backend, which is exactly the place that a stateful check can be done to figure out whether or not the user is currently logged in. When we use REST APIs for data however, a stateful session that tracks authentication is bad practice.
+JSON Web Tokens - Stateless Authentication in Angular Apps
+A great way to do stateless authentication in an Angular app is to use JSON Web Tokens (JWT). JWT is an open standard (RFC 7519), and likely the most compelling reason to choose it as an authentication mechanism is that it can be used to transmit arbitrary data as a JSON object. Since JWTs are digitally signed with a secret key that lives only on the server, we can rest assured that the information in the token can't be tampered with at any point. If the payload in the JWT were to be tampered with, the token would become invalid, which means it wouldn't be able to get past any checkpoints on the server. This makes JWT the perfect mechanism for transmitting information about a user and it gives us a distinct advantage: we can include everything required for our API to know who the user is and what level of access they should have, and the API doesn't need to know a single thing about them prior to the JWT arriving.
+So what does a JWT look like? Here's an example:
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
+
+JWTs contain three parts, and each of them is tacked together with a dot separator. The three parts are:
+Header
+Where we define the algorithm used to sign the token, as well as the token type.
+Payload
+The meat of the JWT. This is where we keep a JSON object of all the claims we want. Claims can include those that are registered in the JWT spec, as well as any arbitrary data we want.
+Signature
+The signature is where the signing action happens. To get the signature, we take the Base64URL encoded header, tack the Base64URL encoded payload next to it, and run that string along with the secret key through the hashing algorithm we've chosen. For the token to properly decode on the backend, it needs to have exactly this form, which means that if someone tries to change any of the information contained within, they'll be out of luck.
+We can see this token decoded with Auth0's open source JWT debugger.
+
+
+
+
+
+
+
+ It should be noted that although JWTs are digitally signed, they are not encrypted. While the digital signature ensures that the content of a JWT cannot be tampered with, they should not be used to transmit sensitive information, as the payload can easily be decoded with tools like the jwt.io debugger.
+How Are JWTs Used to Authenticate Angular Apps?
+For Angular apps that use data APIs, the typical scenario is this:
+
+    Users send their credentials to the server which are verified against a database. If everything checks out, a JWT is sent back to them.
+    The JWT is saved in the user's browser somehow--either by holding it in local storage or in a cookie.
+    The presence of a JWT saved in the browser is used as an indicator that a user is currently logged in.
+    The JWT's expiry time is continually checked to maintain an "authenticated" state in the Angular app, and the user's details are read from the payload to populate views such as the their profile.
+    Access to protected client-side routes (such as the profile area) are limited to only authenticated users
+    When the user makes XHR requests to the API for protected resources, the JWT gets sent as an Authorization header using the Bearer scheme, or as a cookie.
+    Middleware on the server--which is configured with the app's secret key--checks the incoming JWT for validity and, if valid, returns the requested resources.
+
+Fortunately for us, there are several open source libraries for both Angular 1.x and 2 which help us work with JWTs. These libraries are varied in their functionality, but some of the features we get with them are the ability to:
+
+    Decode the JWT and read its payload
+    Attach the JWT as an Authorization header to XHR requests
+    Have a service which exposes methods for logging in and logging out, and which checks whether the current user's JWT is expired or not
+
+Angular 1.x
+
+    angular-jwt by Auth0
+    angular-jwt-auth by Spira
+    Satellizer by Sahat Yalkabov
+
+Angular 2
+
+    angular2-jwt by Auth0
+    ng2-ui-auth by Ron Zeidman
+
+There are also hosted authentication solutions that can drastically simplify the process of setting up user login and signup functionality for Angular apps. This basically means that we don't need to worry about any logic for checking the user's credentials and signing tokens for them.
+
+    Auth0 Lock
+    Firebase User Authentication
+
+Authentication in Action
+So we've got a list of things that our Angular apps should be doing to deal with authentication, but what does this look like in practice? Let's see an example using Angular 2.
+Retrieve a JWT for a User and Save it in Local Storage
+To retrieve a JWT for a user, we need to verify their credentials against a database. If everything checks out, we sign a JWT and send it back to them in the response. We can use almost any server-side language or framework for this task, and there are JWT libraries available for almost everything.
+With the token signing logic set up, we need to expose an endpoint that the app can make a request to for authentication. For this, we just need to send a regular HTTP request. Placing this logic in an injectable service gives us a way to reuse it across our application.
+
+// auth.service.ts
+
+import { Injectable } from '@angular/core';
+import { Http } from '@angular/http';
+import 'rxjs/add/operator/map';
+
+@Injectable()
+export class AuthService {
+
+  constructor(private http: Http) {}
+
+  login(credentials) {
+    this.http.post('https://my-app.com/api/authenticate', credentials)
+      .map(res => res.json())
+      .subscribe(
+        // We're assuming the response will be an object
+        // with the JWT on an id_token key
+        data => localStorage.setItem('id_token', data.id_token),
+        error => console.log(error)
+      );
+  }
+}
+
+We can then wire up a form which takes input from the user and calls the AuthService.
+
+// login.component.ts
+
+import { Component } from '@angular/core';
+import { AuthService } from './auth.service';
+
+interface Credentials {
+  username: string,
+  password: string
+}
+
+@Component({
+  selector: 'login',
+  template: `
+    <form #f="ngForm" (ngSubmit)="onLogin(f.value)" *ngIf="!auth.loggedIn()">
+      <input type="text" placeholder="username" ngControl="username">
+      <input type="password" placeholder="password" ngControl="password">
+      <button type="submit">Submit</button>    
+    </form>
+  `
+})
+
+export class LoginComponent {
+
+  credentials: Credentials;
+
+  constructor(private auth: AuthService) {}
+
+  onLogin(credentials) {
+    this.auth.login(credentials);
+  }
+}
+
+With the login form and the authentication service in place, the user's JWT will be saved in local storage if they successfully authenticate.
+You can see that we've got an *ngIf condition on the form which is looking for a loggedIn method on the AuthService. Let's put that in next.
+Checking for an Unexpired Token
+With stateless authentication, the only real indication for the front end that the user is "authenticated" is if they have an unexpired JWT. Certainly a more robust indication would be a check to make sure their JWT is not only unexpired, but is also still valid. However, to do this kind of check, the front end would need to know the secret key used to sign the JWT, and we really don't want to expose that. Simply checking the expiry is just fine though; if the token is invalid (in other ways than it just being expired), it won't be useful for retrieving protected API resources anyway.
+To do this kind of check, we can get some help from angular2-jwt's tokenNotExpired function.
+
+npm install angular2-jwt
+
+// auth.service.ts
+
+import { tokenNotExpired } from 'angular2-jwt';
+
+...
+
+loggedIn() {
+  return tokenNotExpired();
+}
+
+...
+
+This function simply checks the expiry date of the JWT and returns true if it is not expired.
+Limit Routes to Authenticated Users
+We've got a way to hide our links and navigation elements if the user either doesn't have a JWT or if their JWT is expired. However, they could still navigate by plugging in URI segments manually, so what we need is a way to limit navigation to private routes altogether. To do this we can set up an AuthGuard which checks whether the user has an unexpired JWT in local storage. We'll then apply the guard through CanActivate when we set up the routing configuration.
+
+// auth-guard.service.ts
+
+import { Injectable } from '@angular/core';
+import { Router } from '@angular/router';
+import { CanActivate } from '@angular/router';
+import { Auth } from './auth.service';
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+
+  constructor(private auth: Auth, private router: Router) {}
+
+  canActivate() {
+    if(this.auth.loggedIn()) {
+      return true;
+    } else {
+      this.router.navigateByUrl('/unauthorized');
+      return false;
+    }
+  }
+}
+
+When route navigation is requested, AuthGuard will use the AuthService to check for the presence of an unexpired JWT and, if one exists, the user will be allowed to continue to the route. If the user isn't authenticated however, they will be navigated to an "unauthorized" page.
+The AuthGuard needs to be applied to whichever routes should be kept private, and this is done in the RouterConfig setup.
+
+...
+
+import { AuthGuard } from './auth-guard.service';
+
+export const routes: RouterConfig = [
+  { path: 'admin', component: AdminComponent, canActivate: [AuthGuard] },
+  { path: 'unauthorized', component: UnauthorizedComponent }
+];
+
+...
+
+Send Authenticated HTTP Requests
+The last big step for applying authentication to our app is to have the user's JWT sent as an Authorization header in the HTTP requests they make. Since Angular 2 doesn't have any concept of HTTP interceptors like Angular 1.x does, we need to either send the header in the options object of each request, or we can wrap Http to perform this automatically. The angular2-jwt library provides AuthHttp which does the latter.
+
+// secure-stuff.component.ts
+
+import { Component } from '@angular/core';
+import { AuthHttp, tokenNotExpired } from 'angular2-jwt';
+import 'rxjs/add/operator/map';
+
+@Component({
+  selector: 'secure-stuff',
+  template: `
+    <button (click)="getSecureStuff()">Get Secure Stuff!</button>
+  `
+})
+
+export class SecureStuffComponent {
+
+  stuff: [];
+
+  constructor(private authHttp: AuthHttp) {}
+
+  getSecureStuff() {
+    this.authHttp.get('https://my-app.com/api/secure-stuff')
+      .map(res => res.json())
+      .subscribe(
+        data =>  this.stuff = data.stuff,
+        error => console.log(error)
+      );
+  }
+}
+
+    Note: Any application that uses JWT authentication should always be served over HTTPS to prevent malicious interception of the token.
+
+Log the User Out
+With stateless authentication using JWTs, logging the user out is just a matter of removing their token from local storage.
+
+// auth.service.ts
+
+...
+
+@Injectable()
+export class AuthService {
+
+  ...
+
+  logout() {
+    localStorage.removeItem('id_token'); 
+  }
+}
+
+You might be wondering if this is secure or not, given the fact that we're just removing the token from its holding place and it could, in reality, still be used to access the API. We've got two options to address this concern: we can set the token's expiry time to be short and/or we can implement token blacklisting on the server. With a short window of validity, the JWT can't be exploited for very long, and with blacklisting, the token's ability to access secure resources can be revoked altogether.
+Full Example: Angular 2 Tour of Secret Heroes
+It would be nice to see all of this authentication business in action in a working app. For that, I've put together a fork of John Papa's Tour of Heroes app (used in the Angular 2 Getting Started guide), called Angular 2 Tour of Secret Heroes. In this app, all the original heroes data--plus a set of new 'secret' heroes--has been moved to an Express server. Authentication happens with Auth0, and angular2-jwt is used for protecting routes, conditionally showing UI elements, and sending authenticated HTTP requests.
+Wrapping Up
+Stateless authentication has distinct advantages over traditional session-based auth. Keeping our APIs stateless makes them more agile and lets us easily port our apps to other platforms like mobile or desktop. With open source libraries, such as angular2-jwt, we can easily check for token validity and send authenticated HTTP requests with just a bit of configuration.
+If you're interested in adding authentication to an Angular 1.x app, the things we went through here still apply, but there are a few differences to keep in mind. For instance, Angular 1.x has HTTP interceptors which can be used to attach the Authorization header to requests, so there's no need to wrap the $http service.
+For more on Angular 1.x and 2 authentication, as well as tutorials about Angular in general, be sure to check out the Auth0 blog.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+How to store token in Local or Session Storage in Angular 2?
+I want to use Local or session storage to save authentication token in angular 2.0.0. I use angular2-localstorage but it works only angular 2.0.0-rc.5 and when I used it in 2.0.0 it through me Type error. I want to use default local storage of Angular 2.0.0.
+
+
+
+Save to local storage
+
+localStorage.setItem('currentUser', JSON.stringify({ token: token, name: name }));
+
+Load from local storage
+
+var currentUser = JSON.parse(localStorage.getItem('currentUser'));
+var token = currentUser.token; // your token
+
+For more I suggest you go through this tutorial: Angular 2 JWT Authentication Example & Tutorial
+
+
+http://stackoverflow.com/questions/39840457/how-to-store-token-in-local-or-session-storage-in-angular-2
+
+That totally depends of what do you need exactly. If you just need to store and retrieve a token in order to use it in your http requests, i suggest you to simply create a service and use it in your whole project.
+
+example of basic integration:
+
+import {Injectable} from 'angular@core'
+
+@Injectable()
+export class TokenManager {
+
+    private tokenKey:string = 'app_token';
+
+    private store(content:Object) {
+        localStorage.setItem(this.tokenKey, JSON.stringify(content));
+    }
+
+    private retrieve() {
+        let storedToken:string = localStorage.getItem(this.tokenKey);
+        if(!storedToken) throw 'no token found';
+        return storedToken;
+    }
+
+    public generateNewToken() {
+        let token:string = '...';//custom token generation;
+        let currentTime:number = (new Date()).getTime() + ttl;
+        this.store({ttl: currentTime, token});
+    }
+
+    public retrieveToken() {
+
+        let currentTime:number = (new Date()).getTime(), token = null;
+        try {
+            let storedToken = JSON.parse(this.retrieve());
+            if(storedToken.ttl < currentTime) throw 'invalid token found';
+            token = storedToken.token;
+        }
+        catch(err) {
+            console.error(err);
+        }
+        return token;
+
+    }
+
+}
+
+
+However if you need to use the local storage more often, by using the stored values in your app views for example. You can use one of the libraries that provides a wrapper of the webstorages like you did with angular2-localstorage.
+
+I created some months ago ng2-webstorage that should respond to your needs. It provides two ng2 services and two decorators to sync the webstorage's values and the service/component's attributes.
+
+import {Component} from '@angular/core';
+import {LocalStorageService, LocalStorage} from 'ng2-webstorage';
+
+@Component({
+    selector: 'foo',
+    template: `
+        <section>{{boundValue}}</section>
+        <section><input type="text" [(ngModel)]="attribute"/></section>
+        <section><button (click)="saveValue()">Save</button></section>
+    `,
+})
+export class FooComponent {
+
+    @LocalStorage()
+    boundValue; // attribute bound to the localStorage
+    value;
+
+    constructor(private storage:LocalStorageService) {
+        this.localSt.observe('boundValue')// triggers the callback each time a new value is set
+            .subscribe((newValue) => console.log('new value', newValue));
+    }
+
+    saveValue() {
+      this.storage.store('boundValue', this.value); // store the given value
+    }
+
+}
+
+
+
+
+
+http://jasonwatmore.com/post/2016/08/16/angular-2-jwt-authentication-example-tutorial
+
+
+http://stackoverflow.com/questions/39757209/angular2-jwt-not-sending-session-cookies-back
+angular2-jwt not sending session cookies back
+
+I'm using angular 2 final version with angular2-jwt 0.1.23 My backend is set to work withCredentials. At my login page I do the first request with Angular2 Http setting withCredentials = true at header. After logged I'm using angular2-jwt to send token back, and this is doing ok. My problem is that angular2-jwt is not sending session cookies back to the server. If I did login request again, my server session cookies is being sent back. The problem is only with AuthHttp from angular2-jwt This is my configuration:
+
+@NgModule({
+imports: [BrowserModule, HttpModule, RouterModule.forRoot(routes), AboutModule, PublicaModule, SharedModule.forRoot()],
+declarations: [AppComponent],
+providers: [XHRBackend, BaseRequestOptions{
+provide: APP_BASE_HREF,
+useValue: '<%= APP_BASE %>'
+}, {
+provide: Http,
+useFactory: (backend:XHRBackend, defaultOptions:BaseRequestOptions) => {
+  defaultOptions.withCredentials = true;
+  defaultOptions.headers.append('Content-Type', 'application/json;charset=UTF-8');
+  defaultOptions.headers.append('Accept', 'application/json;charset=UTF-8');
+  return new Http(backend, defaultOptions)
+},
+ deps: [XHRBackend, BaseRequestOptions]
+}, {
+  provide: AuthHttp,
+  useFactory: (http) => {
+  return new AuthHttp(new AuthConfig({
+    headerName: 'Authorization',
+    tokenName: 'id_token',
+    tokenGetter: (() => sessionStorage.getItem('id_token')),
+    noJwtError: false
+  }), http);
+},
+deps: [Http]
+}],
+bootstrap: [AppComponent]
+})
+
+
+
+Can someone help to figure out how to solve this?
+https://stormpath.com/blog/jwt-authentication-angularjs
+
+
+

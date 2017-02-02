@@ -1,0 +1,919 @@
+Angular 2: How to use/import the http module?
+
+
+I've been playing with Angular 2 Quickstart. How can I use/import http module in Angular 2?
+I've looked at Angular 2 Todo's .js, but it doesn't use the http module.
+
+I've added "ngHttp": "angular/http", to dependencies in package.json because I've heard Angular 2 is somewhat modular
+
+
+	
+the ///reference is no longer needed, tsc since 1.6.2 , expects to find angular/http.js inside node_modules and next to it should be a angular/http.d.ts this is suppose to become sort of standard, IDE were this works now are latest VS code , the Early Access of WebStorm, and there is a microsoft plugin for sublime text you can see this working in the latest tutorial in the angular.io – Gabriel Guerrero Oct 21 '15 at 21:04
+   	 
+	
+Github of the angular heroes tutorial where it can be seen working github.com/johnpapa/angular2-tour-of-heroes – Gabriel Guerrero Oct 21 '15 at 21:12
+3 	 
+	
+I don't see any references to angular2/http in the demo anymore @GabrielGuerrero – caffinatedmonkey
+
+Last update: May 11, 2016
+Angular version: 2.0.0-rc.2
+Typescript version: 1.8.10
+
+Live working example.
+
+A simple example of how to use the Http module with Observable:
+
+import {bootstrap} from '@angular2/platform-browser-dynamic';
+import {Component, enableProdMode, Injectable, OnInit} from '@angular/core';
+import {Http, Headers, HTTP_PROVIDERS, URLSearchParams} from '@angular/http';
+import 'rxjs/add/operator/map';
+
+const API_KEY = '6c759d320ea37acf99ec363f678f73c0:14:74192489';
+
+@Injectable()
+class ArticleApi {
+  constructor(private http: Http) {}
+  
+  seachArticle(query) {
+    const endpoint = 'http://api.nytimes.com/svc/search/v2/articlesearch.json';
+    const searchParams = new URLSearchParams()
+    searchParams.set('api-key', API_KEY);
+    searchParams.set('q', query);
+    
+    return this.http
+      .get(endpoint, {search: searchParams})
+      .map(res => res.json().response.docs);
+  }
+  
+  postExample(someData) {
+    const endpoint = 'https://your-endpoint';
+    const headers = new Headers({'Content-Type': 'application/json'});
+    
+    return this.http
+      .post(endpoint, JSON.stringify(someData), { headers: headers })
+      .map(res => res.json());
+  }
+}
+
+@Component({
+  selector: 'app',
+  template: `<ul>
+                <li *ngFor="let article of articles | async"> {{article.headline.main}} </li>
+             </ul>`, 
+  providers: [HTTP_PROVIDERS, ArticleApi],
+})
+class App implements OnInit {
+  constructor(private articleApi: ArticleApi) { }
+  
+  ngOnInit() {
+    this.articles = this.articleApi.seachArticle('obama');
+  }
+}
+
+enableProdMode();
+bootstrap(App)
+  .catch(err => console.error(err));
+
+
+
+	
+Incidentally you can just use http.get instead of http.request. :) – Jean Jul 8 '15 at 1:13
+1 	 
+	
+On alpha.35 -- When I tried to use Observable, I got below exception, not sure if I need to create and instance before. "ORIGINAL EXCEPTION: TypeError: rx_1.Observable.fromEvent is not a function" – lame_coder Sep 29 '15 at 17:42
+   	 
+	
+replace "angular2/angular2" with "angular2/core" in recent versions – Harry B Jan 18 '16 at 8:09
+   	 
+	
+@lame_coder please try now with beta.1. – Itay Radotzki Jan 28 '16 at 11:59
+   	 
+	
+@harryB Thank you, I updated to beta.1 and include your suggestion 
+
+
+
+
+
+
+    We are working on a separate data persistence layer, that will cover HTTP. This is not finished yet.
+    Because of Zone in Angular 2 you can use any existing mechanism for fetching data. This includes XMLHttpRequest, fetch() and any other third party libraries.
+    XHR in the compiler is meant to be private, and we can change the API at any time and as such should not be used.
+
+
+
+
+Much the same in Alpha 42, but it can be noted that Headers and HTTP_PROVIDERS also come from angular2/http.
+
+import {Http, Headers, HTTP_PROVIDERS} from 'angular2/http';
+
+export class App {
+
+  constructor(public http: Http) { }
+
+  getThing() {
+    this.http.get('http://example.com')
+      .map(res => res.text())
+      .subscribe(
+        data => this.thing = data,
+        err => this.logError(err),
+        () => console.log('Complete')
+      );
+  }
+
+}
+
+More on this and how to use observables that get returned over here: https://auth0.com/blog/2015/10/15/angular-2-series-part-3-using-http/
+
+
+
+
+import {Injectable} from 'angular2/core';
+import {Http, HTTP_PROVIDERS} from 'angular2/http';
+
+@Injectable()
+export class GroupSelfService {
+    items:Array<any>;
+
+    constructor(http:Http){
+        http.get('http://127.0.0.1:8080/src/data/names.json')
+        .subscribe(res => {
+            this.items = res;
+            console.log('results found');
+        })
+    }
+}
+
+Results in a 404:
+File change detected
+File change detected
+GET /src/angular2/http 404 0.124 ms - 30
+
+Two strange things:
+1. /src/angular2/http - is not the path where http can be found and not the path I've provided in the code.
+2. core.js lies just beside http.js in the node_modules/angular2 folder and is found.
+
+How strange is that?
+
+Update Mea culpa: None of the examples mentioned that you need to reference the http.js in your html like
+<script src="../node_modules/angular2/bundles/http.dev.js"></script>
+...and then it worked.
+But for the path in the error message I still have no explanation.
+
+
+
+
+
+Apart from all answers given below if i cover up with some additional points Here is Http how to use/import everything...
+ANGULAR2 HTTP (UPDATED to Beta !!)
+
+Firstly as clear from name we have to import http file in the index.html like this
+
+<script src="node_modules/angular2/bundles/http.dev.js"></script>
+
+        or you can update this via CDN from here
+
+then next step we have to import Http and HTTP_PROVIDERS from the bundles provided by angular.
+
+    but yes it is a good practice to provide HTTP_PROVIDERS in the bootstrap file because by using this way it provided on the global level and available for the whole project like following.
+
+bootstrap(App, [
+    HTTP_PROVIDERS, some_more_dependency's
+]);
+
+and imports are from....
+
+import {http} from 'angular2/http';
+
+        Consuming Rest API's or json using Http
+
+Now along with the http we have some more options provided with the angular2/http i.e like Headers, Request, Requestoptions etc etc. which is mostly used while consuming Rest API's or temporary Json data. firstly we have to import all this like following:
+
+import {Http, Response, RequestOptions, Headers, Request, RequestMethod} from 'angular2/http';
+
+sometimes we need to provide Headers while consuming API's for sending access_token and many more things that is done using this way:
+
+this.headers = new Headers();
+this.headers.append("Content-Type", 'application/json');
+this.headers.append("Authorization", 'Bearer ' + localStorage.getItem('id_token'));
+
+now come to RequestMethods: bascially we use GET, POST but we have some more option you can refer here...
+
+we can use use requestmethods by using RequestMethod.method_name
+
+there are some more option for the API's for now i posted one example for POST request the help by using some important methods:
+
+PostRequest(url,data) {
+        this.headers = new Headers();
+        this.headers.append("Content-Type", 'application/json');
+        this.headers.append("Authorization", 'Bearer ' + localStorage.getItem('id_token'))
+
+        this.requestoptions = new RequestOptions({
+            method: RequestMethod.Post,
+            url: url,
+            headers: this.headers,
+            body: JSON.stringify(data)
+        })
+
+        return this.http.request(new Request(this.requestoptions))
+            .map((res: Response) => {
+                if (res) {
+                    return [{ status: res.status, json: res.json() }]
+                }
+            });
+    }
+
+for more info i had found two best reference here.. and here...
+
+
+
+
+
+I believe that now (alpha.35 and 36) is needed to be:
+
+import {Http} from 'http/http';
+
+Remember to add (since now is a separate file) the reference in your html: https://code.angularjs.org/2.0.0-alpha.36/http.dev.js
+
+
+
+
+Following up on a few of the answers, here is a complete working example of using the http module
+
+index.html
+
+ <html>
+  <head>
+    <title>Angular 2 QuickStart</title>
+    <script src="../node_modules/es6-shim/es6-shim.js"></script>
+    <script src="../node_modules/systemjs/dist/system.src.js"></script>
+    <script src="../node_modules/angular2/bundles/angular2.dev.js"></script>
+    <script src="../node_modules/angular2/bundles/http.dev.js"></script>
+    <script>
+      System.config({
+        packages: {'app': {defaultExtension: 'js'}}
+      });
+      System.import('app/app');
+    </script>
+  </head>
+  <body>
+    <app>loading...</app>
+  </body>
+</html>
+
+app/app.ts
+
+import {bootstrap, Component} from 'angular2/angular2';
+import {Http, Headers, HTTP_PROVIDERS} from 'angular2/http';
+
+@Component({
+  selector: 'app',
+  viewProviders: [HTTP_PROVIDERS],
+  template: `<button (click)="ajaxMe()">Make ajax</button>`
+})
+
+class AppComponent {
+  constructor(public http: Http) { }
+
+  ajaxMe() {
+    this.http.get('https://some-domain.com/api/json')
+      .map(res => res.json())
+      .subscribe(
+        data => this.testOutput = data,
+        err => console.log('foo'),
+        () => console.log('Got response from API', this.testOutput)
+      );
+  }
+
+}
+
+bootstrap(AppComponent, []);
+
+
+
+
+ 1
+down vote
+	
+
+Its already in angular2, so you dont need to put anything in package.json
+
+You just have to import and inject it like this. (this is a Stuff service with a methodThatUsesHttp() that just logs the response)
+
+import {XHR} from 'angular2/src/core/compiler/xhr/xhr';
+
+export class Stuff {
+    $http;
+    constructor($http: XHR) {
+        this.$http = $http;
+    }
+
+    methodThatUsesHttp() {
+        var url = 'http://www.json-generator.com/api/json/get/cfgqzSXcVu?indent=2';
+
+        this.$http.get(url).then(function(res) {
+            console.log(res);
+        }, function(err) {
+            console.log(err);
+        });
+    }
+}
+
+
+
+
+http://stackoverflow.com/questions/34827334/triggering-angular2-change-detection-manually
+ 130
+down vote
+accepted
+	
+
+Try one of these:
+
+    ApplicationRef.tick() - similar to Angular 1's $rootScope.$digest() -- i.e., check the full component tree
+    NgZone.run(callback) - similar to $rootScope.$apply(callback) -- i.e., evaluate the callback function inside the Angular 2 zone. I think, but I'm not sure, that this ends up checking the full component tree after executing the callback function.
+    ChangeDetectorRef.detectChanges() - similar to $scope.$digest() -- i.e., check only this component and its children
+
+You can inject ApplicationRef, NgZone, or ChangeDetectorRef into your component.
+
+
+ Thanks, I opted for the 3rd solution so as to not check everything, since the changes are fairly localized. I should investigate the other options when I have more time. Are there any performance implications with each choice? – jz87 Jan 16 '16 at 21:13
+7 	 
+	
++1 for ChangeDetectorRef.detectChanges(). validators were firing before my directive could update an input's value. – ps2goat Apr 28 '16 at 22:34
+   	 
+	
+is ApplicationRef.tick() working nowadays with RC3 ?. – Aral Roca Jun 29 '16 at 12:24
+6 	 
+	
+ApplicationRef.tick() and ChangeDetectorRef.detectChanges() are still present in 2.0.0 final. – Max Mumford Sep 22 '16 at 17:09
+8 	 
+	
+Just thought I'd mention this. These are not static methods, they're instance methods. You're going to need to inject these classes as services. – Steve Paul Oct 6 '16 at 14:17 
+
+
+
+
+I used accepted answer reference and would like to put an example, since Angular 2 documentation is very hard to read, I hope this is easier:
+
+    Import NgZone:
+
+    import { Component, NgZone } from '@angular/core';
+
+    Add it to your class constructor
+
+    constructor(public zone: NgZone, ...args){}
+
+    Run code with zone.run:
+
+    this.zone.run(() => this.donations = donations)
+
+
+
+http://stackoverflow.com/questions/34636435/angular2-what-is-the-best-way-to-get-a-reference-of-a-template-element
+
+http://stackoverflow.com/questions/33767449/how-to-get-correct-reference-variable-value-in-angular-2-typescript
+
+http://stackoverflow.com/questions/39831349/angular2-types-references
+
+http://stackoverflow.com/questions/36018478/getting-a-reference-to-the-child-component-in-the-parent-component
+
+http://stackoverflow.com/questions/39433843/angular2-reference-component-inside-another-component
+
+http://tektutorialshub.com/installing-and-getting-started-with-angular-2/
+http://stackoverflow.com/questions/36631905/how-does-one-add-a-typing-to-typings-json-for-typescript-in-visual-studio-2015
+
+http://stackoverflow.com/questions/35918273/how-can-i-manually-install-angular-libraries-and-get-all-dependencies-without-us
+
+https://github.com/Urigo/angular2-meteor/issues/17
+
+https://github.com/mgechev/angular-seed/wiki/Add-external-dependency
+
+
+
+
+
+
+
+
+
+
+
+
+https://angular.io/docs/ts/latest/cookbook/visual-studio-2015.html
+https://www.infopulse.com/blog/using-angular-2-in-visual-studio-2015-tutorial/
+
+http://www.mithunvp.com/angular-2-in-asp-net-5-typescript-visual-studio-2015/
+
+http://www.tonylunt.com/angular-2/angular-2-in-visual-studio-2015/
+
+
+So you want to develop Angular 2 apps in Visual Studio 2015.
+
+If you begin with the 5 Minute Quickstart over at angular.io, you will quickly realize that the documentation was not written with Visual Studio in mind. It includes some unnecessary configurations and misses crucial steps to getting up and running with Angular 2 in Visual Studio 2015.
+
+The purpose of this blog is to get you running with Angular 2 in Visual Studio 2015. We’ll cover some of the same ground as the previously mentioned 5 Minute Quickstart. You will be able to use the base you create here to add the actual logic from that tutorial. From there you should be able to pick up the more advanced tutorials like the excellent Tour of Heroes project, also from angular.io.
+
+Prerequisites:
+
+    Visual Studio 2015, I’ll be using Community Edition.
+    Update 1 for Visual Studio 2015, if you don’t already have it.
+    The latest Typescript tools for Visual Studio 2015.
+
+We’ll be using TypeScript in this tutorial, which I highly recommend for developing Angular 2 applications. TypeScript is Microsoft’s open-source wrapper around JavaScript which includes strongly-typed variables, classes, interfaces, and other helpful tools for writing cleaner, more dependable JavaScript. Angular 2 was written in TypeScript and most example Angular 2 projects will use it as well.
+
+1. Create the project in Visual Studio 2015
+
+Open Visual Studio 2015 and select File / New / Project. Under TypeScript, select HTML Application with TypeScript. Don’t see this template? Make sure you have the prerequisites installed!
+
+This is just going to be a regular HTML website. We won’t be needing ASP.NET MVC, Web API, or Web Forms.
+
+Give the project a name and create it. I’m going to call mine HelloAngular2.
+
+This creates an empty web project with an index.html, app.ts, app.css, and web.config. Go ahead and delete the .ts and .css file. Open index.html and delete all script and and stylesheet references.
+
+2. Configure Node Package Manager
+
+First thing’s first, let’s get Node Package Manager (NPM) set up. NPM, not to be confused with NuGet which is a different product, is what we will use to load our client-side packages.
+
+Right click your project in the Solution Explorer, and select Add / New Item. Select NPM configuration file and add it to your project. Keep the default file name, package.json.
+
+Without going too deep into NPM theory, this file is used to to tell NPM what client packages we need. Copy and paste the following lines into this file:
+{
+ "version": "1.0.0",
+ "name": "ASP.NET",
+ "private": true,
+ "dependencies": {
+ "angular2": "2.0.0-beta.9",
+ "systemjs": "0.19.24",
+ "es6-promise": "^3.0.2",
+ "es6-shim": "^0.33.3",
+ "reflect-metadata": "0.1.2",
+ "rxjs": "5.0.0-beta.2",
+ "zone.js": "0.5.15"
+ }
+}
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+	
+{
+ "version": "1.0.0",
+ "name": "ASP.NET",
+ "private": true,
+ "dependencies": {
+ "angular2": "2.0.0-beta.9",
+ "systemjs": "0.19.24",
+ "es6-promise": "^3.0.2",
+ "es6-shim": "^0.33.3",
+ "reflect-metadata": "0.1.2",
+ "rxjs": "5.0.0-beta.2",
+ "zone.js": "0.5.15"
+ }
+}
+
+The dependencies listed in this file contain most of what we need to get started developing in Angular 2. We will not use all of these packages explicitly, but they will be needed if you move on to the Tour of Heroes project mentioned earlier. For brevity’s sake, I will not explain what each of these packages does in detail, but I encourage you to do some research on them before you use them in a production application.
+
+Save this file, and watch your output window. You will notice that NPM starts downloading all of the dependencies. Saving this file in Visual Studio is the equivalent of running an npm install command at the project’s root level. For better or for worse, Visual Studio likes to keep you from having to use the command line as much as possible.
+
+You might be wondering where your files are being downloaded to. If you right click the project and select Open Folder in File Explorer, you will find your libraries nested inside the node_modules folder. Do not include this folder in your Visual Studio project or check it into source control. The idea is that NPM will manage these files for you without your involvement.
+
+3. Configure TypeScript
+
+TypeScript has numerous config options that determine how it is compiled and interpreted. Visual Studio exposes some, but not all, of these options in the project properties. Unfortunately, we’re going to need access to some of the options that Visual Studio does not expose. There are two ways we can go about setting these.
+
+    Editing the .csproj file manually (yuck).
+    Adding and editing a tsconfig JSON file.
+
+Let’s do that second option. Right click on your project select Add / New Item. Select and add the TypeScript JSON Configuration File. Keep the default name of tsconfig.json.
+
+Open the file and add the following lines:
+ {
+ "compileOnSave": true,
+ "compilerOptions": {
+ "target": "es5",
+ "module": "system",
+ "moduleResolution": "node",
+ "sourceMap": true,
+ "emitDecoratorMetadata": true,
+ "experimentalDecorators": true,
+ "removeComments": false,
+ "noImplicitAny": false
+ },
+ "exclude": [
+ "node_modules"
+ ]
+}
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+	
+ {
+ "compileOnSave": true,
+ "compilerOptions": {
+ "target": "es5",
+ "module": "system",
+ "moduleResolution": "node",
+ "sourceMap": true,
+ "emitDecoratorMetadata": true,
+ "experimentalDecorators": true,
+ "removeComments": false,
+ "noImplicitAny": false
+ },
+ "exclude": [
+ "node_modules"
+ ]
+}
+
+As with the our package.json file, I’m not going to go into what each of these options does. If you’re curious, I would suggest reading Microsoft’s excellent documentation on the subject.
+
+4. Add the necessary TypeScript typings.
+
+TypeScript gives us the benefit of having a strongly typed front end with Intellisense and compile-time errors. In order to use these features with the various libraries we’re including, we’re going to need some type definitions, which tell TypeScript how to use these libraries. Since we’re using Visual Studio, we can easily grab these files with NuGet.
+
+Right click your project and select Manage NuGet Packages. Search for and install the following libraries:
+
+    angularjs.TypeScript.DefinitelyTyped
+    es6-shim.TypeScript.DefinitelyTyped
+
+The Angular JS definitions will include the jQuery definitions as well. Once they are installed, go to the NuGet Updates tab and make sure everything is up to date.
+
+5. Set up the app folder
+
+As you can see, the root directory of our project is starting to get pretty crowded. Before we create our actual application logic, let’s give it a clean place to live somewhere away from all of this json and config nonsense.
+
+Right click the project and select Add / New Folder and call it app. This will be where all of our main Angular logic, templates, and styling, will live. The root level of our project will be reserved for our libraries, configurations, and the index.html which will serve as the “front door” of our application.
+
+6. Write some Angular 2!
+
+You now have a working environment to write Angular 2 applications. I would recommend finishing the 5 Minute Quickstart on angular.io using the base project you created here. At the time of this writing, Angular 2 is still in beta and undergoing changes. Angular.io will always have the latest version of the documentation, so there is little value in me providing a similar Hello World tutorial here. Skip past the initial configuration steps and start right after the creation of the app folder. From there, I highly recommend following the excellent Tour of Heroes tutorial.
+
+Please check back here as I will be adding more advanced Angular 2 tutorials soon!
+Posted in: Angular 2, NPM, TypeScript, Visual Studio	Tagged: angular, angular 2, angular2, npm, typescript, visual studio, visual studio 2015	
+
+
+
+
+http://stackoverflow.com/questions/33532864/visual-studio-2015-typescript-and-angular2-with-tsconfig-json
+
+http://asp.net-hacker.rocks/2016/08/08/setup-angular2-typescript-aspnetcore-in-visualstudio.html
+n this post I try to explain, how to setup a ASP.NET Core project with Angular2 and typescript in Visual Studio 2015.
+
+    UPDATE This post is now updated to ASP.NET Core 1.0 and Angular2 final. I had troubles to create a ASP.NET Core app using .NET Core 1.0.1 in Visual Studio. This is why it still uses 1.0. The most changes are done in the Angular2 part with the new Module and some other Angular2 dependencies. I also changed the gulpfile.js to move the needed data in a cleaner way. You will find a working project on GitHub: https://github.com/JuergenGutsch/angular2-aspnetcore-vs
+
+There are two ways to setup an Angular2 Application: The most preferred way is to use angular-cli, which is pretty simple. Unfortunately the Angular CLI doesn't use the latest version . The other way is to follow the tutorial on angular.io, which sets-up a basic starting point, but this needs a lot of manually steps. There are also two ways to setup the way you want to develop your app with ASP.NET Core: One way is to separate the client app completely from the server part. It is pretty useful to decouple the server and the client, to create almost independent applications and to host it on different machines. The other way is to host the client app inside the server app. This is useful for small applications, to have all that stuff in one place and it is easy to deploy on a single server.
+
+In this post I'm going to show you, how you can setup Angular2 app, which will be hosted inside an ASP.NET Core application using Visual Studio 2015. Using this way, the Angular-CLI is not the right choice, because it already sets up a development environment for you and all that stuff is configured a little bit different. The effort to move this to Visual Studio would be to much. I will almost follow the tutorial on http://angular.io/. But we need to change some small things to get that stuff working in Visual Studio 2015.
+Configure the ASP.NET Core project
+
+Let's start with a new ASP.NET Core project based on .NET Core. (The name doesn't matter, so "WebApplication391" is fine). We need to choose a Web API project, because the client side Angular2 App will probably communicate with that API and we don't need all the predefined MVC stuff.
+
+A Web API project can't serve static files like JavaScripts, CSS styles, images, or even HTML files. Therefore we need to add a reference to Microsoft.AspNetCore.StaticFiles in the project.json:
+
+"Microsoft.AspNetCore.StaticFiles": "1.0.0 ",
+
+And in the startup.cs, we need to add the following line, just before the call of `UseMvc()
+
+app.UseStaticFiles();
+
+Another important thing we need to do in the startup.cs, is to support the Routing of Angular2. If the Browser calls a URL which doesn't exists on the server, it could be a Angular route. Especially if the URL doesn't contain a file extension.
+
+This means we need to handle the 404 error, which will occur in such cases. We need to serve the index.html to the client, if there was an 404 error, on requests without extensions. To do this we just need a simple lambda based MiddleWare, just before we call UseStaticFiles():
+
+app.Use(async (context, next) =>
+{
+    await next();
+
+    if (context.Response.StatusCode == 404
+        && !Path.HasExtension(context.Request.Path.Value))
+    {
+        context.Request.Path = "/index.html";
+        await next();
+    }
+});
+
+Inside the properties folder we'll find a file called launchSettings.json. This file is used to configure the behavior of visual Studio 2015, when we press F5 to run the application. Remove all strings "api/values" from this file. Because Visual Studio will always call that specific Web API, every time you press F5.
+
+Now we prepared the ASP.NET Core application to start to follow the angular.io tutorial.:
+
+Let's start with the NodeJS packages. Using Visual Studio we can create a new "npm Configuration file" called package.json. Just copy the stuff from the tutorial:
+
+{
+  "name": "angular-quickstart",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "tsc && concurrently \"tsc -w\" \"lite-server\" ",
+    "lite": "lite-server",
+    "postinstall": "typings install",
+    "tsc": "tsc",
+    "tsc:w": "tsc -w",
+    "typings": "typings"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/angular/angular.io/blob/master/LICENSE"
+    }
+  ],
+  "dependencies": {
+    "@angular/common": "2.0.2",
+    "@angular/compiler": "2.0.2",
+    "@angular/core": "2.0.2",
+    "@angular/forms": "2.0.2",
+    "@angular/http": "2.0.2",
+    "@angular/platform-browser": "2.0.2",
+    "@angular/platform-browser-dynamic": "2.0.2",
+    "@angular/router": "3.0.2",
+    "@angular/upgrade": "2.0.2",
+    "angular-in-memory-web-api": "0.1.5",
+    "bootstrap": "3.3.7",
+    "core-js": "2.4.1",
+    "reflect-metadata": "0.1.8",
+    "rxjs": "5.0.0-beta.12",
+    "systemjs": "0.19.39",
+    "zone.js": "0.6.25"
+  },
+  "devDependencies": {
+    "concurrently": "3.0.0",
+    "lite-server": "2.2.2",
+    "gulp": "^3.9.1",
+    "typescript": "2.0.3",
+    "typings":"1.4.0"
+  }
+}
+
+In this listing, I changed a few things:
+
+    I added "&& gulp restore" to the postinstall script
+    I also added Gulp to the devDependency to typings
+
+After the file is saved, Visual Studio tryies to load all the packages. This works, but VS shows a yellow exclemation mark because of any arror. Until yet, I didn't figure out what is going wrong here. To be sure all packages are propery installed, use the console, change directory to the current project and type npm install
+
+The post install will possibly faile because gulp is not yet configured. We need gulp to copy the dependencies to the right location inside the wwwroot folder, because static files will only be loaded from that location. This is not part of the tutorial on angular.io, but is needed to fit the client stuff into Visual Studio. Using Visual Studio we need to create a new "gulp Configuration file" with the name gulpfile.js:
+
+var gulp = require('gulp');
+
+var libs = './wwwroot/libs/';
+
+gulp.task('default', function () {
+    // place code for your default task here
+});
+
+gulp.task('restore:core-js', function() {
+    gulp.src([
+        'node_modules/core-js/client/*.js'
+    ]).pipe(gulp.dest(libs + 'core-js'));
+});
+gulp.task('restore:zone.js', function () {
+    gulp.src([
+        'node_modules/zone.js/dist/*.js'
+    ]).pipe(gulp.dest(libs + 'zone.js'));
+});
+gulp.task('restore:reflect-metadata', function () {
+    gulp.src([
+        'node_modules/reflect-metadata/reflect.js'
+    ]).pipe(gulp.dest(libs + 'reflect-metadata'));
+});
+gulp.task('restore:systemjs', function () {
+    gulp.src([
+        'node_modules/systemjs/dist/*.js'
+    ]).pipe(gulp.dest(libs + 'systemjs'));
+});
+gulp.task('restore:rxjs', function () {
+    gulp.src([
+        'node_modules/rxjs/**/*.js'
+    ]).pipe(gulp.dest(libs + 'rxjs'));
+});
+gulp.task('restore:angular-in-memory-web-api', function () {
+    gulp.src([
+        'node_modules/angular-in-memory-web-api/**/*.js'
+    ]).pipe(gulp.dest(libs + 'angular-in-memory-web-api'));
+});
+
+gulp.task('restore:angular', function () {
+    gulp.src([
+        'node_modules/@angular/**/*.js'
+    ]).pipe(gulp.dest(libs + '@angular'));
+});
+
+gulp.task('restore:bootstrap', function () {
+    gulp.src([
+        'node_modules/bootstrap/dist/**/*.*'
+    ]).pipe(gulp.dest(libs + 'bootstrap'));
+});
+
+gulp.task('restore', [
+    'restore:core-js',
+    'restore:zone.js',
+    'restore:reflect-metadata',
+    'restore:systemjs',
+    'restore:rxjs',
+    'restore:angular-in-memory-web-api',
+    'restore:angular',
+    'restore:bootstrap'
+]);
+
+The task restore, copies all the needed files to the Folder ./wwwroot/libs
+
+TypeScript needs some type definitions to get the types and API definitions of the libraries, which are not written in TypeScript or not available in TypeScript. To load this, we use another tool, called "typings". This is already installed with NPM. This tool is a package manager for type definition files. We need to configure this tool with a typings.config
+
+{
+  "globalDependencies": {
+    "core-js": "registry:dt/core-js#0.0.0+20160725163759",
+    "jasmine": "registry:dt/jasmine#2.2.0+20160621224255",
+    "node": "registry:dt/node#6.0.0+20160909174046"
+  }
+}
+
+No we have to configure typescript itself. We can also add a new item, using Visual Studio to create a TyoeScript configuration file. I would suggest not to use the default content, but the contents from the angular.io tutorial.
+
+{
+  "compileOnSave": true,
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "removeComments": false,
+    "noImplicitAny": false
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+The only things I did with this file, is to add the "compileOnSave" flag and to exclude the "node_modules" folder from the TypeScript build, because we don't need to build containing the TypeScript files and because we moved the needed JavaScripts to ./wwwroot/libs.
+
+    If you use Git or any other source code repository, you should ignore the files generated out of our TypeScript files. In case of Git, I simply add another .gitignore to the ./wwwroot/app folder
+
+    #remove generated files
+    *.js
+    *.map
+
+    We do this becasue the JavaScript files are only relevant to run the applicaiton and should be created automatically in the development environment or on a build server, befor deploying the app.
+
+The first app
+
+That is all to prepare a ASP.NET Core project in Visual Studio 2015. Let's start to create the Angular app. The first step is to create a index.html in the folder wwwroot:
+
+<html>
+<head>
+    <title>Angular QuickStart</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="styles.css">
+    <!-- 1. Load libraries -->
+    <!-- Polyfill(s) for older browsers -->
+    <script src="libs/core-js/shim.min.js"></script>
+    <script src="libs/zone.js/zone.js"></script>
+    <script src="libs/reflect-metadata/Reflect.js"></script>
+    <script src="libs/systemjs/system.src.js"></script>
+    <!-- 2. Configure SystemJS -->
+    <script src="systemjs.config.js"></script>
+    <script>
+        System.import('app').catch(function (err) { console.error(err); });
+    </script>
+</head>
+<!-- 3. Display the application -->
+<body>
+    <my-app>Loading...</my-app>
+</body>
+</html>
+
+As you can see, we load almost all JavaScript files from the libs folder. Except a systemjs.config.js. This file is needed to configure Angular2, to define which module is needed, where to find dependencies an so on. Create a new JavaScript file, call it systemjs.config.js and paste the following content into it:
+
+/**
+ * System configuration for Angular samples
+ * Adjust as necessary for your application needs.
+ */
+(function (global) {
+    System.config({
+        paths: {
+            // paths serve as alias
+            'npm:': 'libs/'
+        },
+        // map tells the System loader where to look for things
+        map: {
+            // our app is within the app folder
+            app: 'app',
+            // angular bundles
+            '@angular/core': 'npm:@angular/core/bundles/core.umd.js',
+            '@angular/common': 'npm:@angular/common/bundles/common.umd.js',
+            '@angular/compiler': 'npm:@angular/compiler/bundles/compiler.umd.js',
+            '@angular/platform-browser': 'npm:@angular/platform-browser/bundles/platform-browser.umd.js',
+            '@angular/platform-browser-dynamic': 'npm:@angular/platform-browser-dynamic/bundles/platform-browser-dynamic.umd.js',
+            '@angular/http': 'npm:@angular/http/bundles/http.umd.js',
+            '@angular/router': 'npm:@angular/router/bundles/router.umd.js',
+            '@angular/forms': 'npm:@angular/forms/bundles/forms.umd.js',
+            // other libraries
+            'rxjs': 'npm:rxjs',
+            'angular-in-memory-web-api': 'npm:angular-in-memory-web-api',
+        },
+        // packages tells the System loader how to load when no filename and/or no extension
+        packages: {
+            app: {
+                main: './main.js',
+                defaultExtension: 'js'
+            },
+            rxjs: {
+                defaultExtension: 'js'
+            },
+            'angular-in-memory-web-api': {
+                main: './index.js',
+                defaultExtension: 'js'
+            }
+        }
+    });
+})(this);
+
+This file also defines a main entry point which is a main.js. This file is the transpiled TypeScript file main.ts we need to create in the next step. The main.ts bootstraps our Angular2 app:
+
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { AppModule } from './app.module';
+
+const platform = platformBrowserDynamic();
+
+platform.bootstrapModule(AppModule);
+
+Since Angular2 RC6, there is an app-Module needed, which should be placed inside an app.module.ts file:
+
+import { NgModule }      from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { AppComponent }   from './app.component';
+
+@NgModule({
+    imports:      [ BrowserModule ],
+    declarations: [ AppComponent ],
+    bootstrap:    [ AppComponent ]
+})
+export class AppModule { }
+
+We also need to create our first Angular2 component. Create a TypeScript file with the name app.component.ts inside the app folder:
+
+import { Component } from '@angular/core';
+
+@Component({
+    selector: 'my-app',
+    template: '<h1>My First Angular App</h1>'
+})
+export class AppComponent { }
+
+If all works fine, Visual Studio should have created a JavaScript file for each TypeScript file. Also the build should run. Pressing F5 should start the Application and a Browser should open.
+
+A short moment the Loading... is visible in the browser. After the app is initialized and all the Angular2 magic happened, you'll see the contents of the template defined in the app.component.ts.
+
+Checkout the working project on GitHub: https://github.com/JuergenGutsch/angular2-aspnetcore-vs
+Conclusion
+
+I propose to use VisualStudio just for small single page applications, because it gets slower the more dynamic files need to be handled. ASP.NET Core is pretty cool to handle dynamically generated files, but Visual Studio still is not. VS tries to track and manage all the files inside the project, which slows down a lot. One solution is to disable source control in Visual Studio and use an external tool to manage the sources.
+
+Another - even better - solution is not to use Visual Studio for front-end development. In a new project, I propose to separate front-end and back-end development and to use Visual Studio Code for the front-end development or even both. You need to learn a few things about NPM, Gulp and you need to use a console in this case, but web development will be a lot faster and a lot more lightweight with this approach. In one of the next posts, I'll show how I currently work with Angular2.
+
+
+
+http://blogs.msmvps.com/deborahk/angular-2-getting-started-with-a-visual-studio-2015-asp-net-4-x-project/
+
+
+
+
+
+
+
+In version 37 you need to do this:
+
+///<reference path="typings/angular2/http.d.ts"/>    
+import {Http} from "angular2/http";
+
+And run this tsd command:
+
+tsd install angular2/http
+
+
+
