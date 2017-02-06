@@ -1,0 +1,1062 @@
+https://github.com/ng2-ui/ng2-auto-complete
+
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'my-app',
+  template: `
+    <a href="" routerLink="/directive-test">Directive</a>
+    <a href="" routerLink="/component-test">Component</a>
+    <router-outlet></router-outlet>`
+})
+export class AppComponent {
+}
+
+
+
+
+import { Component } from "@angular/core";
+-import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+-
+-import { AppSvc } from "./app.service";
++import { Component } from '@angular/core';
+ 
+ @Component({
+-  selector: "my-app",
++  selector: 'my-app',
+   template: `
+-    <h1> Autocomplete Directive Test - Local Source </h1>
+-    
+-    <h3>With Array of Strings</h3>
+-    <pre>source: {{json(arrayOfStrings)}}</pre>
+-    <div ng2-auto-complete 
+-      [min-chars]="1"
+-      [source]="arrayOfStrings"
+-      [accept-user-input]="false"
+-      (ngModelChange)="myCallback($event)"
+-      placeholder="enter text">
+-      <input id="model1" [ngModel]="model1" />
+-    </div>
+-    <br/>selected model1: {{json(model1)}}<br/><br/>
+-    
+-    <h3>With Array of id/value</h3>
+-    <pre>source: {{json(arrayOfKeyValues)}}</pre>
+-    <input 
+-      id="model2"
+-      ng2-auto-complete
+-      blank-option-text="Select One"
+-      [(ngModel)]="model2"
+-      [source]="arrayOfKeyValues" 
+-      placeholder="enter text"/> 
+-    <a href="#" (click)="model2={id:'change', value: 'it'}">Change It</a>
+-    <br/>selected model2: {{model2 | json}}<br/><br/>
+-    
+-    <h3>With Array of Key/Name</h3>
+-    <pre>source: {{json(arrayOfKeyValues2)}}</pre>
+-    <input ng2-auto-complete [source]="arrayOfKeyValues2"
+-      id="model3"
+-      [(ngModel)]="model3"
+-      placeholder="enter text"
+-      value-property-name="key"
+-      display-property-name="name"/>
+-    <br/>selected model3: {{model3 | json}}<br/><br/>
+-      
+-    <h3>With Remote Source as HTTP URI String</h3>
+-    <pre> source: {{googleGeoCode}}</pre>
+-    <input  ng2-auto-complete
+-      id="model4"
+-      [(ngModel)]="model4"
+-      placeholder="Enter Address(min. 2 chars)"
+-      [source]="googleGeoCode" 
+-      no-match-found-text="No Match Found"
+-      display-property-name="formatted_address"
+-      path-to-data="results"
+-      loading-text="Google Is Thinking..."
+-      max-num-list="5"
+-      min-chars="2" />
+-    <br/>selected model4: {{model4 | json}}<br/><br/>
+- 
+-    <h3>With Remote Source as Observable "Marvel API" </h3>
+-    <input  ng2-auto-complete
+-      id="model5"
+-      placeholder="Start typing a hero name (min. 2 chars) ... for example: Hulk"     
+-      [(ngModel)]="model5" 
+-      [source]="appSvc.findHeroes"  
+-      [list-formatter]="renderHero"
+-      path-to-data="data.results"
+-      min-chars="2" 
+-    />
+-    <br/>selected model5: {{model5 | json}}<br/><br/>
+-    
+-    <h3>With Material Design</h3>
+-    <md-input ng2-auto-complete 
+-      id="model6"
+-      [(ngModel)]="myModel"
+-      [source]="arrayOfNumbers"
+-      [list-formatter]="rightAligned"
+-      placeholder="amount" align="end">
+-      <span md-prefix>$&nbsp;</span>
+-      <span md-suffix>.00</span>
+-    </md-input>
+-     
+- `,
+-  styles: [`
+-    ng2-auto-complete, input {
+-      display: block; border: 1px solid #ccc; width: 300px;
+-    }
+-  `],
+-   providers : [AppSvc]
++    <a href="" routerLink="/directive-test">Directive</a>
++    <a href="" routerLink="/component-test">Component</a>
++    <router-outlet></router-outlet>`
+ })
+ export class AppComponent {
+-
+-  arrayOfNumbers: number[] = [100, 200, 300, 400, 500];
+-
+-  arrayOfStrings: string[] =
+-    ["this", "is", "array", "of", "text", "with", "long", "and long", "and long", "list"];
+-
+-  arrayOfKeyValues: any[] =
+-    [{id:1, value:"One"}, {id:2, value:"Two"}, {id:3, value:"Three"}, {id:4, value:"Four"}];
+-
+-  arrayOfKeyValues2: any[] =
+-    [{key:1, name:"Key One"}, {key:2, name:"Key Two"}, {key:3, name:"Key Three"}, {key:4, name:"Key Four"}];
+-
+-  googleGeoCode: string = "https://maps.googleapis.com/maps/api/geocode/json?address=:my_own_keyword";
+-
+-  model1 = "is";
+-  model2 = {id:1, value: "One"};
+-  model3 = {key: 3, name: "Key Three"};
+-
+-  constructor (
+-    public appSvc : AppSvc,
+-    private _sanitizer: DomSanitizer ) {
+-  }
+-
+-  myCallback(newVal) {
+-    console.log("value is changed to ", newVal);
+-    this.model1 = newVal;
+-  }
+-
+-  renderHero = (data: any) : SafeHtml => {
+-    let html = `<b style='float:left;width:100%'>${data.name}</b>
+-                <img style="float: left;padding: 5px;" src="${data.thumbnail.path}/portrait_small.${data.thumbnail.extension}"> 
+-                <span>${data.description}</span>`;
+-
+-    return this._sanitizer.bypassSecurityTrustHtml(html);
+-  }
+-
+-  rightAligned = (data: any) : SafeHtml => {
+-    let html = `<div style="text-align:right">${data}.00</div>`;
+-    return this._sanitizer.bypassSecurityTrustHtml(html);
+-  }
+-
+-  json(obj) {
+-    return JSON.stringify(obj);
+-  }
+ }
+18 app/app.route.ts
+@@ -0,0 +1,18 @@
++import { Routes, RouterModule } from '@angular/router';
++import { ModuleWithProviders } from '@angular/core';
++
++import { DirectiveTestComponent } from './directive-test.component';
++import { ComponentTestComponent } from './component-test.component';
++
++export const routes: Routes = [
++  { path: 'directive-test', component: DirectiveTestComponent },
++  { path: 'component-test', component: ComponentTestComponent },
++  { path: '',  redirectTo: '/directive-test', pathMatch: 'full' },
++];
++
++export const APP_ROUTER_PROVIDERS: ModuleWithProviders = RouterModule.forRoot(routes);
++export const APP_ROUTER_COMPONENTS = [
++  DirectiveTestComponent,
++  ComponentTestComponent
++];
++
+30 app/app.service.ts
+@@ -7,22 +7,20 @@ import "rxjs/add/operator/catch";
+ @Injectable()
+ export class AppSvc {
+ 
+-    marvelBase: string = "http://gateway.marvel.com:80/v1/public/";
+-    marvelPublicKey: string = "b9ced31de3874eb2c065a5bce26f8c59";
++  marvelBase: string = "http://gateway.marvel.com:80/v1/public/";
++  marvelPublicKey: string = "b9ced31de3874eb2c065a5bce26f8c59";
+ 
+-    constructor(private _http: Http) {
+-        console.info("AppSvc created");
+-    }
++  constructor(private _http: Http) {}
+ 
+-    /**
+-     * Find heroe by name
+-     * 
+-     * @param {string} startsWith, the starting characters of the heroe name
+-     * 
+-     * @memberOf AppSvc
+-     */
+-    findHeroes = (startsWith: string): Observable<any[]> => {
+-        return this._http.get(`${this.marvelBase}characters?nameStartsWith=${startsWith}&apikey=${this.marvelPublicKey}`)
+-        .map(h => h.json())
+-    }
++  /**
++   * Find heroe by name
++   *
++   * @param {string} startsWith, the starting characters of the heroe name
++   *
++   * @memberOf AppSvc
++   */
++  findHeroes = (startsWith: string): Observable<any[]> => {
++    return this._http.get(`${this.marvelBase}characters?nameStartsWith=${startsWith}&apikey=${this.marvelPublicKey}`)
++    .map(h => h.json())
++  }
+ }
+42 app/component-test.component.ts
+@@ -0,0 +1,42 @@
++import { Component, ViewEncapsulation } from '@angular/core';
++
++var templateStr = `
++  <br/>
++  <fieldset><legend><h2>Attributes and Events</h2></legend>
++    <ng2-utils-1>
++      <button (click)="show=!show">show/hide</button>
++      <ng2-auto-complete
++        *ngIf="show"
++        (valueSelected)="address=$event"
++        [accept-user-input]="true"
++        [source]="googleGeoCode"
++        blank-option-text="Select None"
++        display-property-name="formatted_address"
++        value-property-name="value"
++        loading-text="Google Is Thinking..."
++        max-num-list="5"
++        min-chars="2"
++        no-match-found-text="No Match Found"
++        path-to-data="results"
++        placeholder="Enter Address(min. 2 chars)"
++      ></ng2-auto-complete>
++      <br>address: {{address | json}}
++    </ng2-utils-1>
++    <pre>{{templateStr | htmlCode:'ng2-utils-1'}}</pre>
++  </fieldset>`;
++
++@Component({
++  selector: 'my-app',
++  template: templateStr,
++  encapsulation: ViewEncapsulation.None,
++  styles: [`
++    fieldset {display: inline-block; vertical-align: top; margin: 10px; padding: 20px }
++    ng2-auto-complete .ng2-auto-complete > input {
++      width: 100%; display: block; border: 1px solid #ccc; width: 300px;
++    }`]
++})
++export class ComponentTestComponent {
++  templateStr: string = templateStr;
++  googleGeoCode: string = "https://maps.googleapis.com/maps/api/geocode/json?address=:my_own_keyword";
++  show: boolean = true;
++}
+136 app/directive-test.component.ts
+@@ -0,0 +1,136 @@
++import { Component } from "@angular/core";
++import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
++
++import { AppSvc } from "./app.service";
++
++@Component({
++  selector: "my-app",
++  template: `
++    <h1> Autocomplete Directive Test - Local Source </h1>
++    
++    <h3>With Array of Strings</h3>
++    <pre>source: {{json(arrayOfStrings)}}</pre>
++    <div ng2-auto-complete 
++      [min-chars]="1"
++      [source]="arrayOfStrings"
++      [accept-user-input]="false"
++      (ngModelChange)="myCallback($event)"
++      placeholder="enter text">
++      <input id="model1" [ngModel]="model1" />
++    </div>
++    <br/>selected model1: {{json(model1)}}<br/><br/>
++    
++    <h3>With Array of id/value</h3>
++    <pre>source: {{json(arrayOfKeyValues)}}</pre>
++    <input 
++      id="model2"
++      ng2-auto-complete
++      blank-option-text="Select One"
++      [(ngModel)]="model2"
++      [source]="arrayOfKeyValues" 
++      placeholder="enter text"/> 
++    <a href="#" (click)="model2={id:'change', value: 'it'}">Change It</a>
++    <br/>selected model2: {{model2 | json}}<br/><br/>
++    
++    <h3>With Array of Key/Name</h3>
++    <pre>source: {{json(arrayOfKeyValues2)}}</pre>
++    <input ng2-auto-complete [source]="arrayOfKeyValues2"
++      id="model3"
++      [(ngModel)]="model3"
++      placeholder="enter text"
++      value-property-name="key"
++      display-property-name="name"/>
++    <br/>selected model3: {{model3 | json}}<br/><br/>
++      
++    <h3>With Remote Source as HTTP URI String</h3>
++    <pre> source: {{googleGeoCode}}</pre>
++    <input  ng2-auto-complete
++      id="model4"
++      [(ngModel)]="model4"
++      placeholder="Enter Address(min. 2 chars)"
++      [source]="googleGeoCode" 
++      no-match-found-text="No Match Found"
++      display-property-name="formatted_address"
++      path-to-data="results"
++      loading-text="Google Is Thinking..."
++      max-num-list="5"
++      min-chars="2" />
++    <br/>selected model4: {{model4 | json}}<br/><br/>
++ 
++    <h3>With Remote Source as Observable "Marvel API" </h3>
++    <input  ng2-auto-complete
++      id="model5"
++      placeholder="Start typing a hero name (min. 2 chars) ... for example: Hulk"     
++      [(ngModel)]="model5" 
++      [source]="appSvc.findHeroes"  
++      [list-formatter]="renderHero"
++      path-to-data="data.results"
++      min-chars="2" 
++    />
++    <br/>selected model5: {{model5 | json}}<br/><br/>
++    
++    <h3>With Material Design</h3>
++    <md-input ng2-auto-complete 
++      id="model6"
++      [(ngModel)]="myModel"
++      [source]="arrayOfNumbers"
++      [list-formatter]="rightAligned"
++      placeholder="amount" align="end">
++      <span md-prefix>$&nbsp;</span>
++      <span md-suffix>.00</span>
++    </md-input>
++     
++ `,
++  styles: [`
++    ng2-auto-complete, input {
++      display: block; border: 1px solid #ccc; width: 300px;
++    }
++  `],
++   providers : [AppSvc]
++})
++export class DirectiveTestComponent {
++
++  arrayOfNumbers: number[] = [100, 200, 300, 400, 500];
++
++  arrayOfStrings: string[] =
++    ["this", "is", "array", "of", "text", "with", "long", "and long", "and long", "list"];
++
++  arrayOfKeyValues: any[] =
++    [{id:1, value:"One"}, {id:2, value:"Two"}, {id:3, value:"Three"}, {id:4, value:"Four"}];
++
++  arrayOfKeyValues2: any[] =
++    [{key:1, name:"Key One"}, {key:2, name:"Key Two"}, {key:3, name:"Key Three"}, {key:4, name:"Key Four"}];
++
++  googleGeoCode: string = "https://maps.googleapis.com/maps/api/geocode/json?address=:my_own_keyword";
++
++  model1 = "is";
++  model2 = {id:1, value: "One"};
++  model3 = {key: 3, name: "Key Three"};
++
++  constructor (
++    public appSvc : AppSvc,
++    private _sanitizer: DomSanitizer ) {
++  }
++
++  myCallback(newVal) {
++    console.log("value is changed to ", newVal);
++    this.model1 = newVal;
++  }
++
++  renderHero = (data: any) : SafeHtml => {
++    let html = `<b style='float:left;width:100%'>${data.name}</b>
++                <img style="float: left;padding: 5px;" src="${data.thumbnail.path}/portrait_small.${data.thumbnail.extension}"> 
++                <span>${data.description}</span>`;
++
++    return this._sanitizer.bypassSecurityTrustHtml(html);
++  }
++
++  rightAligned = (data: any) : SafeHtml => {
++    let html = `<div style="text-align:right">${data}.00</div>`;
++    return this._sanitizer.bypassSecurityTrustHtml(html);
++  }
++
++  json(obj) {
++    return JSON.stringify(obj);
++  }
++}
+25 app/main.ts
+@@ -10,19 +10,34 @@ import { NgModule } from '@angular/core';
+ import { BrowserModule } from '@angular/platform-browser';
+ import { FormsModule } from '@angular/forms';
+ import { HttpModule } from '@angular/http';
++import { Ng2UtilsModule } from 'ng2-utils';
++import { MdInputModule } from '@angular2-material/input';
++import { LocationStrategy, HashLocationStrategy } from "@angular/common";
+ 
+ import { AppComponent }   from './app.component';
+- 
+ // noinspection TypeScriptCheckImport
+ import { Ng2AutoCompleteModule } from 'ng2-auto-complete';
+-import { MdInputModule } from '@angular2-material/input';
++
++import { APP_ROUTER_PROVIDERS, APP_ROUTER_COMPONENTS } from './app.route';
+ 
+ @NgModule({
+-  imports : [BrowserModule, HttpModule, FormsModule, MdInputModule, Ng2AutoCompleteModule],
+-  declarations : [AppComponent],
++  imports : [
++    BrowserModule,
++    APP_ROUTER_PROVIDERS,
++    HttpModule,
++    FormsModule,
++    Ng2UtilsModule,
++    MdInputModule,
++    Ng2AutoCompleteModule
++  ],
++  declarations : [AppComponent, APP_ROUTER_COMPONENTS],
++  providers: [
++    { provide: LocationStrategy, useClass: HashLocationStrategy },
++  ],
+   bootstrap : [AppComponent]
+ })
+ export class AppModule { }
+ 
+ // compile and launch the module
+-platformBrowserDynamic().bootstrapModule(AppModule);
++platformBrowserDynamic().bootstrapModule(AppModule);
++
+1 package.json
+@@ -40,6 +40,7 @@
+     "forever": "^0.15.3",
+     "hammerjs": "^2.0.8",
+     "http-server": "^0.9.0",
++    "ng2-utils": "^0.6.1",
+     "npm-run-all": "^3.1.1",
+     "raw-loader": "^0.5.1",
+     "reflect-metadata": "^0.1.3",
+16 src/ng2-auto-complete.component.ts
+@@ -60,18 +60,18 @@ import { Ng2AutoComplete } from "./ng2-auto-complete";
+       transform: translateY(0px);
+     }
+   }
+-  .ng2-auto-complete ng2-auto-complete {
++  .ng2-auto-complete {
+     background-color: transparent;
+   }
+-  .ng2-auto-complete ng2-auto-complete input {
++  .ng2-auto-complete > input {
+     outline: none;
+     border: 0;
+     padding: 2px; 
+     box-sizing: border-box;
+     background-clip: content-box;
+   }
+ 
+-  .ng2-auto-complete ng2-auto-complete ul {
++  .ng2-auto-complete > ul {
+     background-color: #fff;
+     margin: 0;
+     width : 100%;
+@@ -83,20 +83,20 @@ import { Ng2AutoComplete } from "./ng2-auto-complete";
+     animation: slideDown 0.1s;
+   }
+ 
+-  .ng2-auto-complete ng2-auto-complete ul li {
++  .ng2-auto-complete > ul li {
+     padding: 2px 5px;
+     border-bottom: 1px solid #eee;
+   }
+ 
+-  .ng2-auto-complete ng2-auto-complete ul li.selected {
++  .ng2-auto-complete > ul li.selected {
+     background-color: #ccc;
+   }
+ 
+-  .ng2-auto-complete ng2-auto-complete ul li:last-child {
++  .ng2-auto-complete > ul li:last-child {
+     border-bottom: none;
+   }
+ 
+-  .ng2-auto-complete ng2-auto-complete ul li:hover {
++  .ng2-auto-complete > ul li:hover {
+     background-color: #ccc;
+   }`
+   ],
+@@ -183,7 +183,7 @@ export class Ng2AutoCompleteComponent implements OnInit {
+   }
+ 
+   hideDropdownList(): void {
+-    this.inputEl.style.display = 'none';
++    //this.inputEl.style.display = 'none';
+     this.dropdownVisible = false;
+     this.userInputEl['tabIndex'] = this.userInputElTabIndex; // enable tab focus
+   }
+2 src/ng2-auto-complete.directive.ts
+@@ -69,7 +69,7 @@ export class Ng2AutoCompleteDirective implements OnInit {
+   ngOnInit(): void {
+     // wrap this element with <div class="ng2-auto-complete">
+     let divEl = document.createElement("div");
+-    divEl.className = "ng2-auto-complete";
++    divEl.className = "ng2-auto-complete-wrapper";
+     //divEl.style.display = "inline-block"; //this makes material design not compatible
+     divEl.style.position = "relative";
+     this.el.parentElement.insertBefore(divEl, this.el.nextSibling);
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Angular2 DateTime Picker</title>
+</head>
+
+<body>
+<my-app>Loading...</my-app>
+<script>
+  document.write('<base href="' + document.location + '" />');
+  var script = document.createElement("script");
+  script.src = location.pathname.replace('index.html', '') + 'build/app.js';
+  (document.body).appendChild(script);
+</script>
+</body>
+</html>
+
+
+
+/ polyfills, comment the following out for debugging purpose
+import 'hammerjs';
+import 'core-js/es6';
+import 'core-js/es7/reflect';
+import 'zone.js/dist/zone';// the browser platform with a compiler
+
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule } from '@angular/forms';
+import { HttpModule } from '@angular/http';
+import { Ng2UtilsModule } from 'ng2-utils';
+import { MdInputModule } from '@angular2-material/input';
+import { LocationStrategy, HashLocationStrategy } from "@angular/common";
+
+import { AppComponent }   from './app.component';
+// noinspection TypeScriptCheckImport
+import { Ng2AutoCompleteModule } from 'ng2-auto-complete';
+
+import { APP_ROUTER_PROVIDERS, APP_ROUTER_COMPONENTS } from './app.route';
+
+@NgModule({
+  imports : [
+    BrowserModule,
+    APP_ROUTER_PROVIDERS,
+    HttpModule,
+    FormsModule,
+    Ng2UtilsModule,
+    MdInputModule,
+    Ng2AutoCompleteModule
+  ],
+  declarations : [AppComponent, APP_ROUTER_COMPONENTS],
+  providers: [
+    { provide: LocationStrategy, useClass: HashLocationStrategy },
+  ],
+  bootstrap : [AppComponent]
+})
+export class AppModule { }
+
+// compile and launch the module
+platformBrowserDynamic().bootstrapModule(AppModule);
+
+
+I am having trouble finding a good autocomplete component for Angular2. Just anything that I can pass a list of key,label objects to and have a nice autocomplete on an input field. Kendo does not support angular2 yet and that it what we mostly use internally. It doesn't appear that angular material supports angular 2 yet either. Can anyone please point me in the right direction or let me know what they are using?
+
+This is what I built so far. It's pretty bad and I'd like to find something that looks nice.
+
+
+
+
+
+
+import {Component, EventEmitter, Input, Output} from 'angular2/core';
+import {Control} from 'angular2/common';
+import {Observable} from 'rxjs/Observable';
+import {SimpleKeyValue} from '../models/simple-key-value'
+import 'rxjs/add/operator/map';
+import 'rxjs/add/operator/debounceTime';
+import 'rxjs/add/operator/distinctUntilChanged';
+
+@Component({
+selector: 'general-typeahead',
+template: ` <div>
+            <div class="input-group">
+            <input type="text" [ngFormControl] = "term" class="form-control" placeholder={{placeHolder}} >
+            </div>
+            <ul>
+                <li class="item" *ngFor="#item of matchingItems" (click)="selectItem(item)">
+                    {{item.value}}
+                </li>
+            </ul>              
+</div>`
+})
+
+export class GeneralTypeahead {
+
+  matchingItems: Array<SimpleKeyValue>;
+  term = new Control();
+
+  @Input() allItems: Array<SimpleKeyValue>;
+  @Input() placeHolder: string;
+  @Output() onSelectItem = new EventEmitter<SimpleKeyValue>();
+
+  constructor() {
+    this.term.valueChanges
+        .distinctUntilChanged()
+        .debounceTime(200)
+        .subscribe((term : string) => this.matchingItems = this.allItems.filter(sl => sl.value.toLowerCase().indexOf(term.toLowerCase()) > -1));
+  }
+
+  selectItem(sl: SimpleKeyValue) {
+    this.onSelectItem.emit(sl);
+  }
+}
+
+
+Update: This answer has led to the development of ng2-completer an Angular2 autocomplete component This is the list of exiting autocomplete components for Angular2:
+
+    ng2-completer
+    ng2-auto-complete
+    ng2-typeahead
+
+credit goes to @dan-cancro for comming up with the idea
+
+Keeping the original answer for those who wish to create their own directive:
+
+To display autocomplete list we first need an attribute directive that will return the list of suggestions based on the input text and then display them in a dropdown. The directive has 2 options to diplay the list:
+
+    Obtain a reference to the nativeElement and manipulate the DOM directly
+    Dynamicly load a list component using DynamicComponentLoader
+
+It looks to me that 2nd way is a better choice as it uses angular 2 core mechanisms instead of bypassing them by working directly with the DOM and therefore I'll use this method.
+
+This is the directive code:
+
+
+"use strict";
+import {Directive, DynamicComponentLoader, Input, ComponentRef, Output, EventEmitter, OnInit, ViewContainerRef} from "@angular/core";
+import {Promise} from "es6-promise";
+import {AutocompleteList} from "./autocomplete-list";
+
+@Directive({
+    selector: "[ng2-autocomplete]", // The attribute for the template that uses this directive
+    host: {
+        "(keyup)": "onKey($event)" // Liten to keyup events on the host component
+    }
+})
+export class AutocompleteDirective implements OnInit {
+    // The search function should be passed as an input
+    @Input("ng2-autocomplete") public search: (term: string) => Promise<Array<{ text: string, data: any }>>;
+    // The directive emits ng2AutocompleteOnSelect event when an item from the list is selected
+    @Output("ng2AutocompleteOnSelect") public selected = new EventEmitter();
+
+    private term = "";
+    private listCmp: ComponentRef<AutocompleteList> = undefined;
+    private refreshTimer: any = undefined;
+    private searchInProgress = false;
+    private searchRequired = false;
+
+    constructor( private viewRef: ViewContainerRef, private dcl: DynamicComponentLoader) { }
+    /**
+     * On key event is triggered when a key is released on the host component
+     * the event starts a timer to prevent concurrent requests
+     */
+    public onKey(event: any) {
+        if (!this.refreshTimer) {
+            this.refreshTimer = setTimeout(
+            () => {
+                if (!this.searchInProgress) {
+                    this.doSearch();
+                } else {
+                    // If a request is in progress mark that a new search is required
+                    this.searchRequired = true;
+                }
+            },
+            200);
+        }
+        this.term = event.target.value;
+        if (this.term === "" && this.listCmp) {
+            // clean the list if the search term is empty
+            this.removeList();
+        }
+    }
+
+    public ngOnInit() {
+        // When an item is selected remove the list
+        this.selected.subscribe(() => {
+            this.removeList();
+        });
+    }
+
+    /**
+     * Call the search function and handle the results
+     */
+    private doSearch() {
+        this.refreshTimer = undefined;
+        // if we have a search function and a valid search term call the search
+        if (this.search && this.term !== "") {
+            this.searchInProgress = true;
+            this.search(this.term)
+            .then((res) => {
+                this.searchInProgress = false;
+                // if the term has changed during our search do another search
+                if (this.searchRequired) {
+                    this.searchRequired = false;
+                    this.doSearch();
+                } else {
+                    // display the list of results
+                    this.displayList(res);
+                }
+            })
+            .catch(err => {
+                console.log("search error:", err);
+                this.removeList();
+            });
+        }
+    }
+
+    /**
+     * Display the list of results
+     * Dynamically load the list component if it doesn't exist yet and update the suggestions list
+     */
+    private displayList(list: Array<{ text: string, data: any }>) {
+        if (!this.listCmp) {
+            this.dcl.loadNextToLocation(AutocompleteList, this.viewRef)
+            .then(cmp => {
+                // The component is loaded
+                this.listCmp = cmp;
+                this.updateList(list);
+                // Emit the selectd event when the component fires its selected event
+                (<AutocompleteList>(this.listCmp.instance)).selected
+                    .subscribe(selectedItem => {
+
+                    this.selected.emit(selectedItem);
+                });
+            });
+        } else {
+            this.updateList(list);
+        }
+    }
+
+    /**
+     * Update the suggestions list in the list component
+     */
+    private updateList(list: Array<{ text: string, data: any }>) {
+        if (this.listCmp) {
+            (<AutocompleteList>(this.listCmp.instance)).list = list;
+        }
+    }
+
+    /**
+     * remove the list component
+     */
+    private removeList() {
+        this.searchInProgress = false;
+        this.searchRequired = false;
+        if (this.listCmp) {
+            this.listCmp.destroy();
+            this.listCmp = undefined;
+        }
+    }
+}
+
+
+The directive dynamically loads a dropdown component, this is a sample of such a component using bootstrap 4:
+
+"use strict";
+import {Component, Output, EventEmitter} from "@angular/core";
+
+@Component({
+    selector: "autocomplete-list",
+    template: `<div class="dropdown-menu  search-results">
+                    <a *ngFor="let item of list" class="dropdown-item" (click)="onClick(item)">{{item.text}}</a>
+               </div>`, // Use a bootstrap 4 dropdown-menu to display the list
+    styles: [".search-results { position: relative; right: 0; display: block; padding: 0; overflow: hidden; font-size: .9rem;}"]
+})
+export class AutocompleteList  {
+    // Emit a selected event when an item in the list is selected
+    @Output() public selected = new EventEmitter();
+
+    public list;
+
+    /**
+     * Listen for a click event on the list
+     */
+    public onClick(item: {text: string, data: any}) {
+        this.selected.emit(item);
+    }
+}
+
+To use the directive in another component you need to import the directive, include it in the components directives and provide it with a search function and event handler for the selection:
+
+ "use strict";
+import {Component} from "@angular/core";
+
+import {AutocompleteDirective} from "../component/ng2-autocomplete/autocomplete";
+
+@Component({
+    selector: "my-cmp",
+    directives: [AutocompleteDirective],
+    template: `<input class="form-control" type="text" [ng2-autocomplete]="search()" (ng2AutocompleteOnSelect)="onItemSelected($event)" autocomplete="off">`
+})
+export class MyComponent  {
+
+    /**
+     * generate a search function that returns a Promise that resolves to array of text and optionally additional data
+     */  
+    public search() {
+        return (filter: string): Promise<Array<{ text: string, data: any }>> => {
+            // do the search
+            resolve({text: "one item", data: null});
+        };
+    }
+
+    /**
+     * handle item selection
+     */  
+    public onItemSelected(selected: { text: string, data: any }) {
+        console.log("selected: ", selected.text);
+    }
+}
+
+
+
+Update: This answer has led to the development of ng2-completer an Angular2 autocomplete component This is the list of exiting autocomplete components for Angular2:
+
+    ng2-completer
+    ng2-auto-complete
+    ng2-typeahead
+
+credit goes to @dan-cancro for comming up with the idea
+
+Keeping the original answer for those who wish to create their own directive:
+
+To display autocomplete list we first need an attribute directive that will return the list of suggestions based on the input text and then display them in a dropdown. The directive has 2 options to diplay the list:
+
+    Obtain a reference to the nativeElement and manipulate the DOM directly
+    Dynamicly load a list component using DynamicComponentLoader
+
+It looks to me that 2nd way is a better choice as it uses angular 2 core mechanisms instead of bypassing them by working directly with the DOM and therefore I'll use this method.
+
+This is the directive code:
+
+"use strict";
+import {Directive, DynamicComponentLoader, Input, ComponentRef, Output, EventEmitter, OnInit, ViewContainerRef} from "@angular/core";
+import {Promise} from "es6-promise";
+import {AutocompleteList} from "./autocomplete-list";
+
+@Directive({
+    selector: "[ng2-autocomplete]", // The attribute for the template that uses this directive
+    host: {
+        "(keyup)": "onKey($event)" // Liten to keyup events on the host component
+    }
+})
+export class AutocompleteDirective implements OnInit {
+    // The search function should be passed as an input
+    @Input("ng2-autocomplete") public search: (term: string) => Promise<Array<{ text: string, data: any }>>;
+    // The directive emits ng2AutocompleteOnSelect event when an item from the list is selected
+    @Output("ng2AutocompleteOnSelect") public selected = new EventEmitter();
+
+    private term = "";
+    private listCmp: ComponentRef<AutocompleteList> = undefined;
+    private refreshTimer: any = undefined;
+    private searchInProgress = false;
+    private searchRequired = false;
+
+    constructor( private viewRef: ViewContainerRef, private dcl: DynamicComponentLoader) { }
+    /**
+     * On key event is triggered when a key is released on the host component
+     * the event starts a timer to prevent concurrent requests
+     */
+    public onKey(event: any) {
+        if (!this.refreshTimer) {
+            this.refreshTimer = setTimeout(
+            () => {
+                if (!this.searchInProgress) {
+                    this.doSearch();
+                } else {
+                    // If a request is in progress mark that a new search is required
+                    this.searchRequired = true;
+                }
+            },
+            200);
+        }
+        this.term = event.target.value;
+        if (this.term === "" && this.listCmp) {
+            // clean the list if the search term is empty
+            this.removeList();
+        }
+    }
+
+    public ngOnInit() {
+        // When an item is selected remove the list
+        this.selected.subscribe(() => {
+            this.removeList();
+        });
+    }
+
+    /**
+     * Call the search function and handle the results
+     */
+    private doSearch() {
+        this.refreshTimer = undefined;
+        // if we have a search function and a valid search term call the search
+        if (this.search && this.term !== "") {
+            this.searchInProgress = true;
+            this.search(this.term)
+            .then((res) => {
+                this.searchInProgress = false;
+                // if the term has changed during our search do another search
+                if (this.searchRequired) {
+                    this.searchRequired = false;
+                    this.doSearch();
+                } else {
+                    // display the list of results
+                    this.displayList(res);
+                }
+            })
+            .catch(err => {
+                console.log("search error:", err);
+                this.removeList();
+            });
+        }
+    }
+
+    /**
+     * Display the list of results
+     * Dynamically load the list component if it doesn't exist yet and update the suggestions list
+     */
+    private displayList(list: Array<{ text: string, data: any }>) {
+        if (!this.listCmp) {
+            this.dcl.loadNextToLocation(AutocompleteList, this.viewRef)
+            .then(cmp => {
+                // The component is loaded
+                this.listCmp = cmp;
+                this.updateList(list);
+                // Emit the selectd event when the component fires its selected event
+                (<AutocompleteList>(this.listCmp.instance)).selected
+                    .subscribe(selectedItem => {
+
+                    this.selected.emit(selectedItem);
+                });
+            });
+        } else {
+            this.updateList(list);
+        }
+    }
+
+    /**
+     * Update the suggestions list in the list component
+     */
+    private updateList(list: Array<{ text: string, data: any }>) {
+        if (this.listCmp) {
+            (<AutocompleteList>(this.listCmp.instance)).list = list;
+        }
+    }
+
+    /**
+     * remove the list component
+     */
+    private removeList() {
+        this.searchInProgress = false;
+        this.searchRequired = false;
+        if (this.listCmp) {
+            this.listCmp.destroy();
+            this.listCmp = undefined;
+        }
+    }
+}
+
+The directive dynamically loads a dropdown component, this is a sample of such a component using bootstrap 4:
+
+"use strict";
+import {Component, Output, EventEmitter} from "@angular/core";
+
+@Component({
+    selector: "autocomplete-list",
+    template: `<div class="dropdown-menu  search-results">
+                    <a *ngFor="let item of list" class="dropdown-item" (click)="onClick(item)">{{item.text}}</a>
+               </div>`, // Use a bootstrap 4 dropdown-menu to display the list
+    styles: [".search-results { position: relative; right: 0; display: block; padding: 0; overflow: hidden; font-size: .9rem;}"]
+})
+export class AutocompleteList  {
+    // Emit a selected event when an item in the list is selected
+    @Output() public selected = new EventEmitter();
+
+    public list;
+
+    /**
+     * Listen for a click event on the list
+     */
+    public onClick(item: {text: string, data: any}) {
+        this.selected.emit(item);
+    }
+}
+
+To use the directive in another component you need to import the directive, include it in the components directives and provide it with a search function and event handler for the selection:
+
+ "use strict";
+import {Component} from "@angular/core";
+
+import {AutocompleteDirective} from "../component/ng2-autocomplete/autocomplete";
+
+@Component({
+    selector: "my-cmp",
+    directives: [AutocompleteDirective],
+    template: `<input class="form-control" type="text" [ng2-autocomplete]="search()" (ng2AutocompleteOnSelect)="onItemSelected($event)" autocomplete="off">`
+})
+export class MyComponent  {
+
+    /**
+     * generate a search function that returns a Promise that resolves to array of text and optionally additional data
+     */  
+    public search() {
+        return (filter: string): Promise<Array<{ text: string, data: any }>> => {
+            // do the search
+            resolve({text: "one item", data: null});
+        };
+    }
+
+    /**
+     * handle item selection
+     */  
+    public onItemSelected(selected: { text: string, data: any }) {
+        console.log("selected: ", selected.text);
+    }
+}
+
+Update: code compatible with angular2 rc.1
+http://www.primefaces.org/primeng/#/autocomplete
+
+http://4dev.tech/2016/03/tutorial-creating-an-angular2-autocomplete/
+
+https://embed.plnkr.co/xrZZW6geMNaZdgt4m78i/
+
+http://www.angulartypescript.com/angular-autocomplete-example/
+
+https://www.elastic.co/guide/en/kibana/current/getting-started.html
+https://www.elastic.co/guide/en/kibana/3.0/using-kibana-for-the-first-time.html
