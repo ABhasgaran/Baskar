@@ -1,0 +1,202 @@
+
+
+I'm writing a python scripts to find out whether S3 object is encrypted. I tried using following code but key.encrypted always returns None even though I can see the object on S3 is encrypted.
+
+keys = bucket.list()
+for k in keys:
+    print k.name, k.size, k.last_modified, k.encrypted , "\n"
+
+k.encrypted always returns None.
+
+
+
+
+For what it's worth, you can do this using boto3 (which can be used side-by-side with boto).
+
+s3 = boto3.resource('s3')
+bucket = s3.Bucket('my-bucket-name')
+for obj in bucket.objects.all():
+    key = s3.Object(bucket.name, obj.key)
+    print key.server_side_encryption
+
+See the boto3 docs for a list of available key attributes.
+
+You can also check the encryption state for specific objects using the head_object call. Here's an example in Python/boto:
+
+#!/usr/bin/env python
+import boto3
+
+s3_client = boto3.client('s3')
+head = s3_client.head_object(
+    Bucket="<S3 bucket name>",
+    Key="<S3 object key>"
+)
+if 'ServerSideEncryption' in head:
+    print head['ServerSideEncryption'
+
+
+A call to bucket.list_objects() returns object keys, which include encrypted as a boolean.
+
+However, encrypted does not return True for SSE encrypted objects. It is always False.
+
+See also: Stackoverflow How can I check if S3 objects is encrypted using boto?
+
+For future reference, I solved this by explicitly calling get_key as follows:
+
+for key in bucket.list():
+    not_buggy_key = bucket.get_key(key.name)
+
+Note that encrypted is not a boolean, it's either a string specifying the encryption type or None.
+
+http://boto3.readthedocs.io/en/latest/reference/services/s3.html#S3.Object
+ class S3.Object(bucket_name, key)
+
+    A resource representing an Amazon Simple Storage Service (S3) Object:
+
+    import boto3
+
+    s3 = boto3.resource('s3')
+    object = s3.Object('bucket_name','key')
+
+    Parameters
+
+            bucket_name (string) -- The Object's bucket_name identifier. This must be set.
+            key (string) -- The Object's key identifier. This must be set.
+
+    These are the resource's available identifiers:
+
+        bucket_name
+        key
+
+    These are the resource's available attributes:
+http://boto3.readthedocs.io/en/latest/reference/services/s3.html#S3.Client.head_object
+
+http://boto3.readthedocs.io/en/latest/reference/services/s3.html
+Response Structure
+
+    (dict) --
+        Body (StreamingBody) -- Object data.
+        DeleteMarker (boolean) -- Specifies whether the object retrieved was (true) or was not (false) a Delete Marker. If false, this response header does not appear in the response.
+        AcceptRanges (string) --
+        Expiration (string) -- If the object expiration is configured (see PUT Bucket lifecycle), the response includes this header. It includes the expiry-date and rule-id key value pairs providing object expiration information. The value of the rule-id is URL encoded.
+        Restore (string) -- Provides information about object restoration operation and expiration time of the restored object copy.
+        LastModified (datetime) -- Last modified date of the object
+        ContentLength (integer) -- Size of the body in bytes.
+        ETag (string) -- An ETag is an opaque identifier assigned by a web server to a specific version of a resource found at a URL
+        MissingMeta (integer) -- This is set to the number of metadata entries not returned in x-amz-meta headers. This can happen if you create metadata using an API like SOAP that supports more flexible metadata than the REST API. For example, using SOAP, you can create metadata whose values are not legal HTTP headers.
+        VersionId (string) -- Version of the object.
+        CacheControl (string) -- Specifies caching behavior along the request/reply chain.
+        ContentDisposition (string) -- Specifies presentational information for the object.
+        ContentEncoding (string) -- Specifies what content encodings have been applied to the object and thus what decoding mechanisms must be applied to obtain the media-type referenced by the Content-Type header field.
+        ContentLanguage (string) -- The language the content is in.
+        ContentRange (string) -- The portion of the object returned in the response.
+        ContentType (string) -- A standard MIME type describing the format of the object data.
+        Expires (datetime) -- The date and time at which the object is no longer cacheable.
+        WebsiteRedirectLocation (string) -- If the bucket is configured as a website, redirects requests for this object to another object in the same bucket or to an external URL. Amazon S3 stores the value of this header in the object metadata.
+        ServerSideEncryption (string) -- The Server-side encryption algorithm used when storing this object in S3 (e.g., AES256, aws:kms).
+        Metadata (dict) -- A map of metadata to store with the object in S3.
+            (string) --
+                (string) --
+        SSECustomerAlgorithm (string) -- If server-side encryption with a customer-provided encryption key was requested, the response will include this header confirming the encryption algorithm used.
+        SSECustomerKeyMD5 (string) -- If server-side encryption with a customer-provided encryption key was requested, the response will include this header to provide round trip message integrity verification of the customer-provided encryption key.
+        SSEKMSKeyId (string) -- If present, specifies the ID of the AWS Key Management Service (KMS) master encryption key that was used for the object.
+        StorageClass (string) --
+        RequestCharged (string) -- If present, indicates that the requester was successfully charged for the request.
+        ReplicationStatus (string) --
+        PartsCount (integer) -- The count of parts this object has.
+        TagCount (integer) -- The number of tags, if any, on the object.
+
+
+
+https://aws.amazon.com/blogs/security/how-to-prevent-uploads-of-unencrypted-objects-to-amazon-s3/
+
+
+https://ruchka.nz/node/54
+
+S3 Encrypted Object with boto and python
+Posted by red on Monday, 1 August 2016
+
+We have just released one of our storage applications into a new region of AWS and this meant moving our object storage solution into AWS's S3 object storage platform.
+
+By default AWS S3 objects are not "Encrypted At Rest" on the underlying disk storage. However, AWS also supports the ability to use a number of encryption models as part of the S3 toolset.
+
+In our case, we just want to be sure that all stored object data is "Encrypted At Rest" on underlying media storage. Meaning that in the case of physical compromise of any devices it would not be possible to expunge the data objects.
+
+We investigated using our own keys in the AWS KMS (Key Management Service) but the complexity overhead did not seem justified - given that AWS would still have access to the underlying data.
+
+In our case, we are fine with AWS handing the encryption keys.
+
+Fished around for some scripts using python's boto library, and couldn't figure out how to do it. Discovered that adding the below headers seems to work.
+
+
+#!/usr/bin/env python
+
+import boto
+import boto.s3.connection
+
+access_key = 'xxx'
+secret = 'yyy'
+bucket = 'test-encryption-bucket'
+
+print "About to connect"
+conn = boto.connect_s3(aws_access_key_id=access_key,
+aws_secret_access_key=secret)
+
+print "Connected to S3"
+
+# get bucket
+bucket = conn.get_bucket(bucket)
+print "got bucket"
+
+# Store hello world file in it
+key = bucket.new_key('text.txt')
+key.set_contents_from_string('Hello World!',
+headers={'x-amz-server-side-encryption':'AES256',}
+)
+
+We have tested this code and it did not require the addition of dedicated keys into our AWS account. Hope this is of healthy.
+
+See below the screen grab of an S3 object in the AWS concole. This shows an object that is not encrypted on disk. If your script above has succeeded, then you should see the AES-256 highlighted instead.
+
+https://ruchka.nz/node/54
+
+http://s3browser.com/amazon-s3-server-side-encryption.aspx
+look this for s3 bucket screen, enable/disable
+
+https://aws.amazon.com/blogs/security/how-to-use-the-rest-api-to-encrypt-s3-objects-by-using-aws-kms/
+
+http://s3tools.org/kb/item11.htm
+https://cloudacademy.com/blog/s3-lifecycle-policies-versioning-encryption-aws-security/
+
+
+=========================================================================================
+RDS
+=========================================================================================
+
+http://boto3.readthedocs.io/en/latest/reference/services/rds.html
+Protecting Data Using Server-Side Encryption with Customer-Provided Encryption Keys (SSE-C) 
+
+http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
+Protecting Data Using Server-Side Encryption with Amazon S3-Managed Encryption Keys (SSE-S3)
+
+http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Events.html
+Using Amazon RDS Event Notification
+
+
+http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html
+Encrypting Amazon RDS Resources
+
+http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAM.AccessControl.IdentityBased.html
+Using Identity-Based Policies (IAM Policies) for Amazon RDS
+
+
+https://blog.fugue.co/2015-04-21-aws-kms-secrets.html
+Using AWS KMS to manage secrets in your Infrastructure
+============================================================================================
+EBS
+============================================================================================
+http://boto.cloudhackers.com/en/latest/ref/ec2.html
+
+http://jayendrapatil.com/tag/encryption/
+https://aws.amazon.com/blogs/security/how-to-use-the-rest-api-to-encrypt-s3-objects-by-using-aws-kms/
+http://docs.aws.amazon.com/redshift/latest/dg/t_unloading_encrypted_files.html
