@@ -1,0 +1,899 @@
+s3 = boto3.resource('s3')
+ 
+bucket = s3.Bucket('my-bucket-name')
+ 
+for obj in bucket.objects.all():
+ 
+     key = s3.Object(bucket.name, obj.key)
+ 
+     print key.server_side_encryption
+
+
+
+simport boto3
+
+s3_client = boto3.client('s3')
+head = s3_client.head_object(
+    Bucket="<S3 bucket name>",
+    Key="<S3 object key>"
+)
+if 'ServerSideEncryption' in head:
+    print head['ServerSideEncryption']
+
+*******************************************************************************************************
+import json
+import urllib
+import boto3
+
+
+
+def lambda_handler(event, context):
+    first = event.get('first', 50)
+    second = event.get('second', 0)
+    sum = first + second
+    print('Loading function1')
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket('clouders')
+    print (bucket)
+    for obj in bucket.objects.all():
+        key = s3.Object(bucket.name, obj.key)
+        print (key.sse_customer_algorithm)
+        print (key.content_type)
+        print (key.server_side_encryption)
+        #print(key)
+        obj.get()["Body"].read()
+        print (obj.key)
+        print (obj.size)
+        print (obj.last_modified)
+        #plans_url = obj.generate_url(3600, query_auth=True, force_http=True)
+        #print (plans_url)
+        #print(json.dumps(obj))
+
+from __future__ import print_function
+
+import boto3
+import os
+
+BUCKET = 'clouders'
+KEY = os.urandom(32)
+s3 = boto3.resource('s3')
+print("Put object...")
+s3.put_object(Bucket=BUCKET,
+              Key='encrypt-key', Body=b'foobar',
+              SSECustomerKey=KEY,
+              SSECustomerAlgorithm='AES256')
+print("Done")
+# Make sure to save the KEY!
+
+# Getting the object:
+print(KEY)
+response = s3.get_object(Bucket=BUCKET,
+                         Key='encrypt-key',
+                         SSECustomerKey=KEY,
+                         SSECustomerAlgorithm='AES256')
+print(response.server_side_encryption)
+print("Done, response body:")
+print(response['Body'].read())
+
+#s3 = boto3.resource('s3')
+    bucket = s3.Bucket('clouders')
+    print (bucket)
+    for obj in Bucket.objects.all():
+        key = s3.Object(Bucket.name, obj.key)
+        print (key.sse_customer_algorithm)
+        print (key.content_type)
+        print (key.ServerSideEncryption)
+        #print(key)
+        obj.get()["Body"].read()
+        print (obj.key)
+        print (obj.size)
+        print (obj.last_modified)
+
+**************************************************************************************
+import boto3
+import os
+
+ec2 = boto3.resource('ec2')
+res = ec2.Instance('i-03b3fc5d9ab99fa94')
+#instances = [i for r in res for i in r.instances]
+#vol = ec2.get_all_volumes()
+vol = res.volumes.all()
+print(vol)
+
+for volumes in vol:
+    if volumes.attachment_state() == 'attached':
+        filter = {'block-device-mapping.volume-id':volumes.id}
+        volumesinstance = ec2.get_all_instances(filters=filter)
+        ids = [z for k in volumesinstance for z in k.instances]
+
+for unattachedvol in vol:
+    state = unattachedvol.attachment_state()
+#if state == None:
+    #print unattachedvol.id, state
+        
+#def lambda_handler(event, context):
+    # TODO implement
+    #return 'Hello from Lambda'
+
+
+def lambda_handler(event, context):
+
+    for vol in ec2.volumes.all():
+
+        if vol.state=='available':
+
+            if vol.tags is None:
+
+                vid=vol.id
+
+                 v=ec2.Volume(vol.id)
+
+                v.delete()
+
+                print "Deleted " +vid
+
+                continue
+
+            for tag in vol.tags:
+
+                if tag['Key'] == 'Name':
+
+                    value=tag['Value']
+
+                    if value != 'DND' and vol.state=='available':
+
+                        vid=vol.id
+
+                        v=ec2.Volume(vol.id)
+
+                        v.delete()
+
+                        print "Deleted " +vid
+
+************************************************************************************************
+
+{ ? 
+   u'Reservations':[ ? 
+      { ? 
+         u'OwnerId':'459750388338',
+         u'ReservationId':'r-0302d59eee4126a35',
+         u'Groups':[ ? 
+
+         ],
+         u'Instances':[ ? 
+            { ? 
+               u'Monitoring':{ ? 
+                  u'State':'disabled'
+               },
+               u'PublicDnsName':'ec2-52-14-216-160.us-east-2.compute.amazonaws.com',
+               u'Platform':'windows',
+               u'State':{ ? 
+                  u'Code':16,
+                  u'Name':'running'
+               },
+               u'EbsOptimized':False,
+               u'LaunchTime':datetime.datetime(2017,
+               6,
+               16,
+               10,
+               17,
+               8,
+               tzinfo=tzlocal()),
+               u'PublicIpAddress':'52.14.216.160',
+               u'PrivateIpAddress':'172.31.33.6',
+               u'ProductCodes':[ ? 
+
+               ],
+               u'VpcId':'vpc-76543b1f',
+               u'StateTransitionReason':'',
+               u'InstanceId':'i-02f38d437018c50a4',
+               u'EnaSupport':True,
+               u'ImageId':'ami-0fdff86a',
+               u'PrivateDnsName':'ip-172-31-33-6.us-east-2.compute.internal',
+               u'KeyName':'Clouders',
+               u'SecurityGroups':[ ? 
+                  { ? 
+                     u'GroupName':'launch-wizard-2',
+                     u'GroupId':'sg-874f71ee'
+                  }
+               ],
+               u'ClientToken':'gSwym1497525782514',
+               u'SubnetId':'subnet-b61ad2fb',
+               u'InstanceType':'t2.micro',
+               u'NetworkInterfaces':[ ? 
+                  { ? 
+                     u'Status':'in-use',
+                     u'MacAddress':'0a:43:8f:0f:76:03',
+                     u'SourceDestCheck':True,
+                     u'VpcId':'vpc-76543b1f',
+                     u'Description':'',
+                     u'Association':{ ? 
+                        u'PublicIp':'52.14.216.160',
+                        u'PublicDnsName':'ec2-52-14-216-160.us-east-2.compute.amazonaws.com',
+                        u'IpOwnerId':'amazon'
+                     },
+                     u'NetworkInterfaceId':'eni-3513e279',
+                     u'PrivateIpAddresses':[ ? 
+                        { ? 
+                           u'PrivateDnsName':'ip-172-31-33-6.us-east-2.compute.internal',
+                           u'Association':{ ? 
+                              u'PublicIp':'52.14.216.160',
+                              u'PublicDnsName':'ec2-52-14-216-160.us-east-2.compute.amazonaws.com',
+                              u'IpOwnerId':'amazon'
+                           },
+                           u'Primary':True,
+                           u'PrivateIpAddress':'172.31.33.6'
+                        }
+                     ],
+                     u'PrivateDnsName':'ip-172-31-33-6.us-east-2.compute.internal',
+                     u'Attachment':{ ? 
+                        u'Status':'attached',
+                        u'DeviceIndex':0,
+                        u'DeleteOnTermination':True,
+                        u'AttachmentId':'eni-attach-0563a566',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        11,
+                        23,
+                        3,
+                        tzinfo=tzlocal())
+                     },
+                     u'Groups':[ ? 
+                        { ? 
+                           u'GroupName':'launch-wizard-2',
+                           u'GroupId':'sg-874f71ee'
+                        }
+                     ],
+                     u'Ipv6Addresses':[ ? 
+
+                     ],
+                     u'SubnetId':'subnet-b61ad2fb',
+                     u'OwnerId':'459750388338',
+                     u'PrivateIpAddress':'172.31.33.6'
+                  }
+               ],
+               u'SourceDestCheck':True,
+               u'Placement':{ ? 
+                  u'Tenancy':'default',
+                  u'GroupName':'',
+                  u'AvailabilityZone':'us-east-2c'
+               },
+               u'Hypervisor':'xen',
+               u'BlockDeviceMappings':[ ? 
+                  { ? 
+                     u'DeviceName':'/dev/sda1',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-0ae5e43a5b29a85f0',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        11,
+                        23,
+                        3,
+                        tzinfo=tzlocal())
+                     }
+                  }
+               ],
+               u'Architecture':'x86_64',
+               u'RootDeviceType':'ebs',
+               u'RootDeviceName':'/dev/sda1',
+               u'VirtualizationType':'hvm',
+               u'AmiLaunchIndex':0
+            }
+         ]
+      },
+      { ? 
+         u'OwnerId':'459750388338',
+         u'ReservationId':'r-0757ff7d40daea6db',
+         u'Groups':[ ? 
+
+         ],
+         u'Instances':[ ? 
+            { ? 
+               u'Monitoring':{ ? 
+                  u'State':'enabled'
+               },
+               u'PublicDnsName':'ec2-13-58-188-51.us-east-2.compute.amazonaws.com',
+               u'Platform':'windows',
+               u'State':{ ? 
+                  u'Code':16,
+                  u'Name':'running'
+               },
+               u'EbsOptimized':False,
+               u'LaunchTime':datetime.datetime(2017,
+               6,
+               15,
+               10,
+               3,
+               19,
+               tzinfo=tzlocal()),
+               u'PublicIpAddress':'13.58.188.51',
+               u'PrivateIpAddress':'172.31.41.13',
+               u'ProductCodes':[ ? 
+
+               ],
+               u'VpcId':'vpc-76543b1f',
+               u'StateTransitionReason':'',
+               u'InstanceId':'i-016237034e94fd718',
+               u'EnaSupport':True,
+               u'ImageId':'ami-0fdff86a',
+               u'PrivateDnsName':'ip-172-31-41-13.us-east-2.compute.internal',
+               u'KeyName':'Clouders',
+               u'SecurityGroups':[ ? 
+                  { ? 
+                     u'GroupName':'launch-wizard-1',
+                     u'GroupId':'sg-3b5f6152'
+                  }
+               ],
+               u'ClientToken':'rWLZM1497520998594',
+               u'SubnetId':'subnet-b61ad2fb',
+               u'InstanceType':'t2.micro',
+               u'NetworkInterfaces':[ ? 
+                  { ? 
+                     u'Status':'in-use',
+                     u'MacAddress':'0a:01:6e:4e:03:b5',
+                     u'SourceDestCheck':True,
+                     u'VpcId':'vpc-76543b1f',
+                     u'Description':'',
+                     u'Association':{ ? 
+                        u'PublicIp':'13.58.188.51',
+                        u'PublicDnsName':'ec2-13-58-188-51.us-east-2.compute.amazonaws.com',
+                        u'IpOwnerId':'amazon'
+                     },
+                     u'NetworkInterfaceId':'eni-4bcd3c07',
+                     u'PrivateIpAddresses':[ ? 
+                        { ? 
+                           u'PrivateDnsName':'ip-172-31-41-13.us-east-2.compute.internal',
+                           u'Association':{ ? 
+                              u'PublicIp':'13.58.188.51',
+                              u'PublicDnsName':'ec2-13-58-188-51.us-east-2.compute.amazonaws.com',
+                              u'IpOwnerId':'amazon'
+                           },
+                           u'Primary':True,
+                           u'PrivateIpAddress':'172.31.41.13'
+                        }
+                     ],
+                     u'PrivateDnsName':'ip-172-31-41-13.us-east-2.compute.internal',
+                     u'Attachment':{ ? 
+                        u'Status':'attached',
+                        u'DeviceIndex':0,
+                        u'DeleteOnTermination':True,
+                        u'AttachmentId':'eni-attach-a34583c0',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        19,
+                        tzinfo=tzlocal())
+                     },
+                     u'Groups':[ ? 
+                        { ? 
+                           u'GroupName':'launch-wizard-1',
+                           u'GroupId':'sg-3b5f6152'
+                        }
+                     ],
+                     u'Ipv6Addresses':[ ? 
+
+                     ],
+                     u'SubnetId':'subnet-b61ad2fb',
+                     u'OwnerId':'459750388338',
+                     u'PrivateIpAddress':'172.31.41.13'
+                  }
+               ],
+               u'SourceDestCheck':True,
+               u'Placement':{ ? 
+                  u'Tenancy':'default',
+                  u'GroupName':'',
+                  u'AvailabilityZone':'us-east-2c'
+               },
+               u'Hypervisor':'xen',
+               u'BlockDeviceMappings':[ ? 
+                  { ? 
+                     u'DeviceName':'/dev/sda1',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-015a150d67e5c726a',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        20,
+                        tzinfo=tzlocal())
+                     }
+                  },
+                  { ? 
+                     u'DeviceName':'xvdb',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-06d06d99d53712285',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        20,
+                        tzinfo=tzlocal())
+                     }
+                  },
+                  { ? 
+                     u'DeviceName':'xvdc',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-0eadae88f3ab01bc1',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        20,
+                        tzinfo=tzlocal())
+                     }
+                  }
+               ],
+               u'Architecture':'x86_64',
+               u'RootDeviceType':'ebs',
+               u'IamInstanceProfile':{ ? 
+                  u'Id':'AIPAIYRGI6DL4HDZ74Y72',
+                  u'Arn':'arn:aws:iam::459750388338:instance-profile/Clouders'
+               },
+               u'RootDeviceName':'/dev/sda1',
+               u'VirtualizationType':'hvm',
+               u'Tags':[ ? 
+                  { ? 
+                     u'Value':'Titus',
+                     u'Key':'Building'
+                  },
+                  { ? 
+                     u'Value':'Clouders',
+                     u'Key':'NAME'
+                  },
+                  { ? 
+                     u'Value':'Hyderabad',
+                     u'Key':'Location'
+                  }
+               ],
+               u'AmiLaunchIndex':1
+            },
+            { ? 
+               u'Monitoring':{ ? 
+                  u'State':'enabled'
+               },
+               u'PublicDnsName':'ec2-13-58-53-234.us-east-2.compute.amazonaws.com',
+               u'Platform':'windows',
+               u'State':{ ? 
+                  u'Code':16,
+                  u'Name':'running'
+               },
+               u'EbsOptimized':False,
+               u'LaunchTime':datetime.datetime(2017,
+               6,
+               16,
+               10,
+               19,
+               16,
+               tzinfo=tzlocal()),
+               u'PublicIpAddress':'13.58.53.234',
+               u'PrivateIpAddress':'172.31.33.48',
+               u'ProductCodes':[ ? 
+
+               ],
+               u'VpcId':'vpc-76543b1f',
+               u'StateTransitionReason':'',
+               u'InstanceId':'i-06d49bf3fbeb3b410',
+               u'EnaSupport':True,
+               u'ImageId':'ami-0fdff86a',
+               u'PrivateDnsName':'ip-172-31-33-48.us-east-2.compute.internal',
+               u'KeyName':'Clouders',
+               u'SecurityGroups':[ ? 
+                  { ? 
+                     u'GroupName':'launch-wizard-1',
+                     u'GroupId':'sg-3b5f6152'
+                  }
+               ],
+               u'ClientToken':'rWLZM1497520998594',
+               u'SubnetId':'subnet-b61ad2fb',
+               u'InstanceType':'t2.micro',
+               u'NetworkInterfaces':[ ? 
+                  { ? 
+                     u'Status':'in-use',
+                     u'MacAddress':'0a:f9:b0:09:9a:bf',
+                     u'SourceDestCheck':True,
+                     u'VpcId':'vpc-76543b1f',
+                     u'Description':'',
+                     u'Association':{ ? 
+                        u'PublicIp':'13.58.53.234',
+                        u'PublicDnsName':'ec2-13-58-53-234.us-east-2.compute.amazonaws.com',
+                        u'IpOwnerId':'amazon'
+                     },
+                     u'NetworkInterfaceId':'eni-44cd3c08',
+                     u'PrivateIpAddresses':[ ? 
+                        { ? 
+                           u'PrivateDnsName':'ip-172-31-33-48.us-east-2.compute.internal',
+                           u'Association':{ ? 
+                              u'PublicIp':'13.58.53.234',
+                              u'PublicDnsName':'ec2-13-58-53-234.us-east-2.compute.amazonaws.com',
+                              u'IpOwnerId':'amazon'
+                           },
+                           u'Primary':True,
+                           u'PrivateIpAddress':'172.31.33.48'
+                        }
+                     ],
+                     u'PrivateDnsName':'ip-172-31-33-48.us-east-2.compute.internal',
+                     u'Attachment':{ ? 
+                        u'Status':'attached',
+                        u'DeviceIndex':0,
+                        u'DeleteOnTermination':True,
+                        u'AttachmentId':'eni-attach-a24583c1',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        19,
+                        tzinfo=tzlocal())
+                     },
+                     u'Groups':[ ? 
+                        { ? 
+                           u'GroupName':'launch-wizard-1',
+                           u'GroupId':'sg-3b5f6152'
+                        }
+                     ],
+                     u'Ipv6Addresses':[ ? 
+
+                     ],
+                     u'SubnetId':'subnet-b61ad2fb',
+                     u'OwnerId':'459750388338',
+                     u'PrivateIpAddress':'172.31.33.48'
+                  }
+               ],
+               u'SourceDestCheck':True,
+               u'Placement':{ ? 
+                  u'Tenancy':'default',
+                  u'GroupName':'',
+                  u'AvailabilityZone':'us-east-2c'
+               },
+               u'Hypervisor':'xen',
+               u'BlockDeviceMappings':[ ? 
+                  { ? 
+                     u'DeviceName':'/dev/sda1',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-0acc7587365e03368',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        20,
+                        tzinfo=tzlocal())
+                     }
+                  },
+                  { ? 
+                     u'DeviceName':'xvdb',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-09521fc47d69af35e',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        20,
+                        tzinfo=tzlocal())
+                     }
+                  },
+                  { ? 
+                     u'DeviceName':'xvdc',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-054076278e48b7a31',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        10,
+                        3,
+                        20,
+                        tzinfo=tzlocal())
+                     }
+                  }
+               ],
+               u'Architecture':'x86_64',
+               u'RootDeviceType':'ebs',
+               u'IamInstanceProfile':{ ? 
+                  u'Id':'AIPAIYRGI6DL4HDZ74Y72',
+                  u'Arn':'arn:aws:iam::459750388338:instance-profile/Clouders'
+               },
+               u'RootDeviceName':'/dev/sda1',
+               u'VirtualizationType':'hvm',
+               u'Tags':[ ? 
+                  { ? 
+                     u'Value':'Hyderabad',
+                     u'Key':'Location'
+                  },
+                  { ? 
+                     u'Value':'Clouders',
+                     u'Key':'NAME'
+                  },
+                  { ? 
+                     u'Value':'Titus',
+                     u'Key':'Building'
+                  }
+               ],
+               u'AmiLaunchIndex':0
+            }
+         ]
+      },
+      { ? 
+         u'OwnerId':'459750388338',
+         u'ReservationId':'r-04a09cb7ef5c825d8',
+         u'Groups':[ ? 
+
+         ],
+         u'Instances':[ ? 
+            { ? 
+               u'Monitoring':{ ? 
+                  u'State':'enabled'
+               },
+               u'PublicDnsName':'ec2-13-58-254-15.us-east-2.compute.amazonaws.com',
+               u'Platform':'windows',
+               u'State':{ ? 
+                  u'Code':16,
+                  u'Name':'running'
+               },
+               u'EbsOptimized':False,
+               u'LaunchTime':datetime.datetime(2017,
+               6,
+               15,
+               11,
+               32,
+               22,
+               tzinfo=tzlocal()),
+               u'PublicIpAddress':'13.58.254.15',
+               u'PrivateIpAddress':'172.31.25.58',
+               u'ProductCodes':[ ? 
+
+               ],
+               u'VpcId':'vpc-76543b1f',
+               u'StateTransitionReason':'',
+               u'InstanceId':'i-03b3fc5d9ab99fa94',
+               u'EnaSupport':True,
+               u'ImageId':'ami-7fc4e31a',
+               u'PrivateDnsName':'ip-172-31-25-58.us-east-2.compute.internal',
+               u'KeyName':'Clouders',
+               u'SecurityGroups':[ ? 
+                  { ? 
+                     u'GroupName':'launch-wizard-3',
+                     u'GroupId':'sg-78467811'
+                  }
+               ],
+               u'ClientToken':'alvrQ1497526341458',
+               u'SubnetId':'subnet-9e8d36e5',
+               u'InstanceType':'t2.micro',
+               u'NetworkInterfaces':[ ? 
+                  { ? 
+                     u'Status':'in-use',
+                     u'MacAddress':'06:3c:dc:40:93:8d',
+                     u'SourceDestCheck':True,
+                     u'VpcId':'vpc-76543b1f',
+                     u'Description':'',
+                     u'Association':{ ? 
+                        u'PublicIp':'13.58.254.15',
+                        u'PublicDnsName':'ec2-13-58-254-15.us-east-2.compute.amazonaws.com',
+                        u'IpOwnerId':'amazon'
+                     },
+                     u'NetworkInterfaceId':'eni-79d20103',
+                     u'PrivateIpAddresses':[ ? 
+                        { ? 
+                           u'PrivateDnsName':'ip-172-31-25-58.us-east-2.compute.internal',
+                           u'Association':{ ? 
+                              u'PublicIp':'13.58.254.15',
+                              u'PublicDnsName':'ec2-13-58-254-15.us-east-2.compute.amazonaws.com',
+                              u'IpOwnerId':'amazon'
+                           },
+                           u'Primary':True,
+                           u'PrivateIpAddress':'172.31.25.58'
+                        }
+                     ],
+                     u'PrivateDnsName':'ip-172-31-25-58.us-east-2.compute.internal',
+                     u'Attachment':{ ? 
+                        u'Status':'attached',
+                        u'DeviceIndex':0,
+                        u'DeleteOnTermination':True,
+                        u'AttachmentId':'eni-attach-1e1a1f7f',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        11,
+                        32,
+                        22,
+                        tzinfo=tzlocal())
+                     },
+                     u'Groups':[ ? 
+                        { ? 
+                           u'GroupName':'launch-wizard-3',
+                           u'GroupId':'sg-78467811'
+                        }
+                     ],
+                     u'Ipv6Addresses':[ ? 
+
+                     ],
+                     u'SubnetId':'subnet-9e8d36e5',
+                     u'OwnerId':'459750388338',
+                     u'PrivateIpAddress':'172.31.25.58'
+                  }
+               ],
+               u'SourceDestCheck':True,
+               u'Placement':{ ? 
+                  u'Tenancy':'default',
+                  u'GroupName':'',
+                  u'AvailabilityZone':'us-east-2b'
+               },
+               u'Hypervisor':'xen',
+               u'BlockDeviceMappings':[ ? 
+                  { ? 
+                     u'DeviceName':'/dev/sda1',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-05750e8b177705960',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        11,
+                        32,
+                        23,
+                        tzinfo=tzlocal())
+                     }
+                  },
+                  { ? 
+                     u'DeviceName':'xvdb',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-012b66810045dfc92',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        11,
+                        32,
+                        23,
+                        tzinfo=tzlocal())
+                     }
+                  },
+                  { ? 
+                     u'DeviceName':'xvdc',
+                     u'Ebs':{ ? 
+                        u'Status':'attached',
+                        u'DeleteOnTermination':True,
+                        u'VolumeId':'vol-0e72c767152b8cd5b',
+                        u'AttachTime':datetime.datetime(2017,
+                        6,
+                        15,
+                        11,
+                        32,
+                        23,
+                        tzinfo=tzlocal())
+                     }
+                  }
+               ],
+               u'Architecture':'x86_64',
+               u'RootDeviceType':'ebs',
+               u'IamInstanceProfile':{ ? 
+                  u'Id':'AIPAIYRGI6DL4HDZ74Y72',
+                  u'Arn':'arn:aws:iam::459750388338:instance-profile/Clouders'
+               },
+               u'RootDeviceName':'/dev/sda1',
+               u'VirtualizationType':'hvm',
+               u'Tags':[ ? 
+                  { ? 
+                     u'Value':'Hyderabad',
+                     u'Key':'Location'
+                  },
+                  { ? 
+                     u'Value':'Clouders',
+                     u'Key':'NAME'
+                  },
+                  { ? 
+                     u'Value':'Titus',
+                     u'Key':'Building'
+                  }
+               ],
+               u'AmiLaunchIndex':0
+            }
+         ]
+      }
+   ],
+   'ResponseMetadata':{ ? 
+      'RetryAttempts':0,
+      'HTTPStatusCode':200,
+      'RequestId':'7696a27b-3375-4620-a47f-51f97cedb6e1',
+      'HTTPHeaders':{ ? 
+         'transfer-encoding':'chunked',
+         'vary':'Accept-Encoding',
+         'server':'AmazonEC2',
+         'content-type':'text/xml;charset=UTF-8',
+         'date':'Fri, 16 Jun 2017 12:31:52 GMT'
+      }
+   }
+}
+
+*****************************************************************************************************
+
+import boto3 
+ 
+ 
+ client = boto3.client('ses') 
+ 
+ 
+ response = client.send_email( 
+     Source='subasis@gmail.com', 
+     Destination={ 
+         'ToAddresses': [ 
+             'bhaskaran.v.alwar@verizon.com', 
+         ], 
+     }, 
+     Message={ 
+         'Subject': { 
+             'Data': 'hi there from Amazon SES', 
+             'Charset': 'ascii' 
+         }, 
+         'Body': { 
+             'Text': { 
+                 'Data': 'hi, this is a test for a new SES emailing script - this is a plaintext message', 
+                 'Charset': 'ascii' 
+             }, 
+             'Html': { 
+                 'Data': 'hi, this is a test for a new SES emailing script - this is an HTML message', 
+                 'Charset': 'ascii' 
+             } 
+         } 
+     }, 
+     ReplyToAddresses=[ 
+         'subasis@gmail.com', 
+     ], 
+     ReturnPath='subasis@gmail.com'
+ ) 
+ 
+ 
+***************************************************************************************************
+{'DBInstances': [{'DBInstanceIdentifier': 'clouders', 'DBInstanceClass': 'db.t2.medium', 'Engine': 'mysql', 'DBInstanceStatus': 'available', 'MasterUsername': 'clouders', 'DBName': 'cloud_hyd', 'Endpoint': {'Address': 'clouders.ctlhkfksebco.us-east-2.rds.amazonaws.com', 'Port': 3306, 'HostedZoneId': 'Z2XHWR1WZ565X2'}, 'AllocatedStorage': 5, 'InstanceCreateTime': datetime.datetime(2017, 6, 15, 10, 23, 22, 685000, tzinfo=tzlocal()), 'PreferredBackupWindow': '07:30-08:00', 'BackupRetentionPeriod': 7, 'DBSecurityGroups': [], 'VpcSecurityGroups': [{'VpcSecurityGroupId': 'sg-5f615f36', 'Status': 'active'}], 'DBParameterGroups': [{'DBParameterGroupName': 'default.mysql5.6', 'ParameterApplyStatus': 'in-sync'}], 'AvailabilityZone': 'us-east-2c', 'DBSubnetGroup': {'DBSubnetGroupName': 'default', 'DBSubnetGroupDescription': 'default', 'VpcId': 'vpc-76543b1f', 'SubnetGroupStatus': 'Complete', 'Subnets': [{'SubnetIdentifier': 'subnet-b61ad2fb', 'SubnetAvailabilityZone': {'Name': 'us-east-2c'}, 'SubnetStatus': 'Active'}, {'SubnetIdentifier': 'subnet-3b651852', 'SubnetAvailabilityZone': {'Name': 'us-east-2a'}, 'SubnetStatus': 'Active'}, {'SubnetIdentifier': 'subnet-9e8d36e5', 'SubnetAvailabilityZone': {'Name': 'us-east-2b'}, 'SubnetStatus': 'Active'}]}, 'PreferredMaintenanceWindow': 'sat:05:09-sat:05:39', 'PendingModifiedValues': {}, 'LatestRestorableTime': datetime.datetime(2017, 6, 16, 14, 50, tzinfo=tzlocal()), 'MultiAZ': True, 'EngineVersion': '5.6.29', 'AutoMinorVersionUpgrade': True, 'ReadReplicaDBInstanceIdentifiers': [], 'LicenseModel': 'general-public-license', 'OptionGroupMemberships': [{'OptionGroupName': 'default:mysql-5-6', 'Status': 'in-sync'}], 'SecondaryAvailabilityZone': 'us-east-2a', 'PubliclyAccessible': True, 'StorageType': 'gp2', 'DbInstancePort': 0, 'StorageEncrypted': False, 'DbiResourceId': 'db-TTPUIYBOGZORXT2HOJ63WLB4LE', 'CACertificateIdentifier': 'rds-ca-2015', 'DomainMemberships': [], 'CopyTagsToSnapshot': False, 'MonitoringInterval': 60, 'EnhancedMonitoringResourceArn': 'arn:aws:logs:us-east-2:459750388338:log-group:RDSOSMetrics:log-stream:db-TTPUIYBOGZORXT2HOJ63WLB4LE', 'MonitoringRoleArn': 'arn:aws:iam::459750388338:role/rds-monitoring-role', 'DBInstanceArn': 'arn:aws:rds:us-east-2:459750388338:db:clouders', 'IAMDatabaseAuthenticationEnabled': False}], 'ResponseMetadata': {'RequestId': '1bb65e36-52a4-11e7-8be7-0371038924c9', 'HTTPStatusCode': 200, 'HTTPHeaders': {'x-amzn-requestid': '1bb65e36-52a4-11e7-8be7-0371038924c9', 'content-type': 'text/xml', 'content-length': '4537', 'vary': 'Accept-Encoding', 'date': 'Fri, 16 Jun 2017 14:57:24 GMT'}, 'RetryAttempts': 0}}
+END RequestId: 1b376a80-52a4-11e7-b2eb-854ddfc12019
+
+**************************************************************************************************
+
+{u'Owner': {u'ID': 'd12899091b2aa7ba8c32adceb06cd95f2523ca758e73290ff691ec38d2640342'},
+ u'Grants': [
+
+	{u'Grantee': 
+		{u'Type': 'CanonicalUser', u'ID': 'd12899091b2aa7ba8c32adceb06cd95f2523ca758e73290ff691ec38d2640342'},  	 u'Permission': 'FULL_CONTROL'}, 
+	
+{u'Grantee': {u'Type': 'Group', u'URI': 'http://acs.amazonaws.com/groups/global/AuthenticatedUsers'},
+ u'Permission': 'FULL_CONTROL'}]
+
+
+
+
+, 'ResponseMetadata': {'HTTPStatusCode': 200, 'RetryAttempts': 1, 'HostId': 'MDBhznP9RMXX1K+PnXF1Gn8v19GIpHfvD5EThdL5G91EcTKHhbvGD9l1P/15n988Zp81zo5UqvU=', 'RequestId': '02B4101C80BC5D40', 'HTTPHeaders': {'x-amz-id-2': 'MDBhznP9RMXX1K+PnXF1Gn8v19GIpHfvD5EThdL5G91EcTKHhbvGD9l1P/15n988Zp81zo5UqvU=', 'server': 'AmazonS3', 'transfer-encoding': 'chunked', 'x-amz-request-id': '02B4101C80BC5D40', 'date': 'Fri, 16 Jun 2017 15:34:22 GMT', 'content-type': 'application/xml'}}}
+
+
+{'SecurityGroups': 
+[{'OwnerId': '459750388338', 'GroupName': 'default', 'GroupId': 'sg-5f615f36', 'Description': 'default VPC security group', 'IpPermissions': [{'IpProtocol': '-1', 'UserIdGroupPairs': [{'UserId': '459750388338', 'GroupId': 'sg-5f615f36'}], 'IpRanges': [], 'Ipv6Ranges': [], 'PrefixListIds': []}], 'IpPermissionsEgress': [{'IpProtocol': '-1', 'UserIdGroupPairs': [], 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [], 'PrefixListIds': []}], 'VpcId': 'vpc-76543b1f'}, {'OwnerId': '459750388338', 'GroupName': 'launch-wizard-1', 'GroupId': 'sg-3b5f6152', 'Description': 'launch-wizard-1 created 2017-06-15T15:32:20.442+05:30', 'IpPermissions': 
+
+[{'IpProtocol': 'tcp', 'FromPort': 3389, 'ToPort': 3389, 'UserIdGroupPairs': [], 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [], 'PrefixListIds': []}], 'IpPermissionsEgress': 
+[{'IpProtocol': '-1', 'UserIdGroupPairs': [], 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [], 'PrefixListIds': []}], 'VpcId': 'vpc-76543b1f'}, 
+
+{'OwnerId': '459750388338', 'GroupName': 'launch-wizard-2', 'GroupId': 'sg-874f71ee', 'Description': 'launch-wizard-2 created 2017-06-15T16:53:43.690+05:30', 
+
+'IpPermissions': [{'IpProtocol': 'tcp', 'FromPort': 3389, 'ToPort': 3389, 'UserIdGroupPairs': [], 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [], 'PrefixListIds': []}], 'IpPermissionsEgress': [{'IpProtocol': '-1', 'UserIdGroupPairs': [], 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [], 'PrefixListIds': []}], 'VpcId': 'vpc-76543b1f'}, {'OwnerId': '459750388338', 'GroupName': 'launch-wizard-3', 'GroupId': 'sg-78467811', 'Description': 'launch-wizard-3 created 2017-06-15T17:02:20.091+05:30', 'IpPermissions': [{'IpProtocol': 'tcp', 'FromPort': 3389, 'ToPort': 3389, 'UserIdGroupPairs': [], 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [{'CidrIpv6': '::/0'}], 'PrefixListIds': []}], 'IpPermissionsEgress': [{'IpProtocol': '-1', 'UserIdGroupPairs': [], 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [], 'PrefixListIds': []}], 'VpcId': 'vpc-76543b1f'}], 'ResponseMetadata': {'RequestId': 'c74152c9-5c49-4217-b76b-afa0333f1dc5', 'HTTPStatusCode': 200, 'HTTPHeaders': {'content-type': 'text/xml;charset=UTF-8', 'transfer-encoding': 'chunked', 'vary': 'Accept-Encoding', 'date': 'Fri, 16 Jun 2017 15:58:40 GMT', 'server': 'AmazonEC2'}, 'RetryAttempts': 0}}
+
