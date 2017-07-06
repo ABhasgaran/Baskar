@@ -1,0 +1,410 @@
+The modular architectural style seems particularly well suited to cloud-based environments
+Microservices is a way of breaking large software projects into smaller, independent, and loosely coupled modules. Individual modules are responsible for highly defined and discrete tasks and communicate with other modules through simple, universally accessible APIs.
+
+microservices is really nothing more than another architectural solution for designing complex – mostly web-based – applications. But what’s wrong with existing architectural solutions like the widely adopted SOA (Service Oriented Architecture)
+
+
+I need to build a classic web application using Java. The first thing I will do is design a Presentation Layer (the user interface), then an Application Layer handling all business logic, an Integration Layer to enable loose coupling between various components of the Application Layer, and finally a Database Layer that will be accessible to the underlying persistent system.
+
+If any single application function or component fails, then the entire application goes down. Imagine you have a web application with separate functions handling tasks like payment, login, and history and, for some reason, a particular function starts consuming more memory or CPU. The entire application will feel the pain, even though the issue is really only based on a single component.
+
+
+This can have an impact on the development stage as much as application deployments. As applications get bigger, it’s even more important that developers should be able break things down to smaller and more workable units. Because everything in the monolithic approach is tied together, developers cannot work independently to develop/deploy their own modules. And because developers remain totally dependent on others, development time increases.
+
+Microservices: advantages
+
+The advantages of microservices seem strong enough to have convinced some big enterprise players – like Amazon, Netflix, and eBay – to begin their transitions. As opposed to more monolithic design structures, microservices…
+
+    Improves fault isolation: larger applications can remain largely unaffected by the failure of a single module.
+    Eliminates long-term commitment to a single technology stack: If you want to try out a new technology stack on an individual service, go right ahead. Dependency concerns will be far lighter than with monolithic designs, and rolling back changes much easier. The less code in play, the more flexible you remain.
+    Makes it easier for a new developer to understand the functionality of a service.
+
+
+Just because something is all the rage around the industry, doesn’t mean it has no drawbacks. Here’s a list of some potential pain areas associated with microservices designs:
+
+    Developing distributed systems can be complex. By which I mean, because everything is now an independent service, you have to carefully handle requests travelling between your modules. There can be a scenario where one of the services may not be responding, forcing you to write extra code specifically to avoid disruption. Things can get more complicated when remote calls experience latency.
+    Multiple databases and transaction management can be painful.
+
+
+Microservices break down software into functional components that interoperate and communicate to create an overall application. These functional components can scale up or down to accommodate user needs. And although microservices-based applications do not require cloud services, microservices and cloud computing are ideal IT matches.
+
+Containers, for example, are well-suited for microservices components. Using the underlying operating system that containers share, various containerized components can link together and communicate to form the overall application. In addition, organizations can use performance monitoring and load balancing services to quickly create and destroy containers and drive automated scaling behaviors.
+
+This means a properly-configured cloud deployment can potentially anticipate a bottleneck forming in a container, automatically spin up more of the affected containers -- perhaps within an Amazon Elastic Compute Cloud (EC2) cluster -- and then use load balancing to split application traffic between the duplicate containers to handle the additional load.
+
+The reverse is also true. As the load declines again later, load balancing services in the cloud can "see" the declining demand and use automatic scaling to remove unneeded duplicate containers. Then, those resources are returned to the pool for re-use.
+
+Microservices can also use a cloud provider's API calls for event-driven computing. For example, services like Amazon Web Services Lambda can provide compute services in response to program events, such as errors or a new user logon. But Lambda routines don't use compute resources until an event actually occurs. When an event occurs, the called routine loads and executes, then disappears. This means the overall application can be written more efficiently and rarely-used functions can be relegated to event-driven services that don't use resources until the function is called.
+
+Functions as a Service or FaaS is a fairly recent development that provides a cloud platform for customers to develop, run and manage their applications without the need for building and maintaining the usual infrastructure.
+
+It works best when you have services which are rarely used. Serverless architecture has no overhead when not used and supports failover in a much simpler manner. It also works best when you don’t have any state to save. i.e. session less.
+
+https://www.quora.com/Does-serverless-architecture-offer-the-benefits-of-microservices-without-the-big-cost
+
+While implementation of DevOps practices has been on the rise lately, a slightly lesser-known concept has also been gaining popularity – microservices. The idea behind microservice architecture is to build your application as many independent services rather than one large code base (commonly referred to as a monolith). Rather than accessing the majority of your data using large databases, communication is often handled with API calls between the services, with each service having its own lightweight database.
+
+Microservice architecture doesn’t necessarily mandate any more than the core concepts mentioned above, but there are many other best practices that help facilitate better integration across many facets of software development lifecycles. The primary practices associated with microservices include containerization, continuous integration, DevOps, automated integration testing, and – in many cases- the Agile development methodology.
+
+When implemented properly in combination with these best practices, implementation of microservices can deliver many benefits to your project’s application, including:
+
+    Easier deployment process
+    When deploying updates to a particular feature, the entire application does not need to be re-deployed – just the service that you want updated.
+    Use of varied programming languages and technology stacks
+    Microservices give you the ability to use different technology stacks across your microservices – want to use Java and Scala? Go for it! Additionally, this makes it much easier to migrate to different technology stacks than with a monolith application.
+    Better failure detection
+    With microservices, it is easier to monitor and detect when one of your services has an issue. Of course, this requires that the right software be in place to monitor said services.
+    Enhanced continuous integration and deployment
+    Spreading your application across many different code repositories makes it easier for developers to constantly push changes to their microservices, and also makes for easier automation testing.
+
+There are several different technologies and platforms that help enable microservice architecture to succeed. Here’s a few of the important ones:
+
+    Containerization Platforms
+    Moving between developing features on many different microservices locally would be a nightmare to setup, but thankfully platforms like Docker and VMware vSphere allow you to deploy images on your computer locally, regardless of what operating system you use.
+    Deployment Automation Tools
+    Automation software like Jenkins, Puppet, and Chef pair well with microservice architecture allowing you to achieve true continuous integration and deployment.
+    Automated Integration Testing Platforms
+    There are way too many integration testing suites available to list here, although Selenium is probably one of the most popular choices. These platforms play a very important role in Continuous Integration and microservice architecture (and for any application, really).
+
+There are also some technologies related to Big Data systems that integrate well with microservice architecture:
+
+    Messaging Systems
+    Lightweight messaging is required for microservices to succeed – especially with the significant amount of API calls being made. Commonly used platforms include Apache Kafka, Amazon Kinesis, and Rabbit MQ. While not necessarily a Big Data technology, these systems are commonly used with Big Data platforms.
+    Orchestration Systems
+    Platforms such as Kubernetes and Apache’s Mesos distribute workloads across distributed computed platforms (such as Apache’s Hadoop).
+    Cloud computing with Big Data
+    Services like Amazon’s AWS and Microsoft’s Azure have really been leading the way in cloud computing solutions geared towards Big Data solutions, allowing for ease of deployment and scaling of resources – which is essential for microservices to realize their full potential.
+
+
+Is the microservice architecture right for your environment?
+
+One of the reasons microservices could be potentially more compelling for a Big Data initiative is that many of the projects are ground floor opportunities – Big Data has been around for a while now, but many projects are new initiatives. Implementing microservices into an existing project would be complicated and expensive, and it may be hard to justify the cost of the undertaking. 
+
+Like many relatively new concepts, microservices are not universally accepted as the right architecture for their technology environment. However, the architecture has been successfully implemented by many big tech-savvy organizations, including Uber, Amazon, Netflix, and Ebay – to name a few.
+
+It’s common knowledge that Big Data scalability is a major concern – you can only throw so much hardware at a problem before poorly planned architecture makes it become unmanageable. As with many technology implementations, over time the systems gain added functionality and especially in the case of Big Data, higher velocity, variety, and volume. Adapting a microservice architecture could help offset these challenges in the future if implemented properly.
+
+Though implementation of microservices is challenging, many would agree that the benefits outweigh the additional cost and application complexity. At the very least, if you’re starting a new Big Data initiative it would be worth your time to consider analyzing it as a viable option. 
+http://www.aptude.com/blog/entry/benefits-and-challenges-of-using-microservices-with-big-data-applications
+
+Cloud computing has been a game changer in a number ways and the emergence of serverless computing/architectures is just another example of what cloud tech (and in particular AWS) has been able to achieve.
+
+Serverless is about abstracting users away from servers, infrastructure, and having to deal with low-level configuration or the core operating system. Instead, developers make use of single purpose services (such as S3 for storage or Auth0 for identity management) and elastic compute platforms (such as AWS Lambda) to execute code.
+
+By composing and combining different services together in a loose orchestration developers can now build complex systems very quickly and spend most of their time focusing on their core business problem. These serverless systems can scale, grow and evolve without developers or solution architects having to worry about remembering to patch that web server yet again.
+
+It goes without saying that not all applications can be implemented in the serverless way. There are limitations especially when it comes to legacy systems and using a public cloud. However, it is exciting to see Lambda and services such as the API Gateway grow in capability and evolve all the time. I strongly believe that if used wisely, a good serverless architecture can speed up development time and help to produce a more robust product. 
+
+I contribute to a startup that is fully serverless and uses an exciting array of technologies. It scales beautifully and is a joy to work on. Just some of the services we use include: Auth0, Firebase, API Gateway, Lambda, SES, SQS, S3, CloudSearch and Elastic Transcoder... and there is not a single server for us to manage in sight.
+
+Initially, the definition of serverless computing was limited to development of applications which are dependent on third-party services in the cloud. These 3rd party apps or services would manage the server-side logic and state. Alongside a related term – Mobile backend as a service (MBaaS) also became popular.
+
+    But now serverless architecture is defined by stateless compute containers and modeled for an event-driven solution.
+
+AWS Lambda is the perfect example of serverless architecture and employs Functions as a service (FaaS) model of cloud computing. Platform as a Service (PaaS) architectures popularized by Salesforce Heroku, AWS Elastic Beanstalk and Microsoft Azure simplify applications deployment for developers. And serverless architecture or FaaS is the next step in that direction.
+
+FaaS provides a platform allowing the developers to execute code in response to events without the complexity of building and maintaining the infrastructure.
+
+Serverless Misnomer -
+Thus despite the name ‘serverless’, it does require servers to run code. The term serverless signifies, the organization or person doesn’t need to purchase, rent or provision servers or virtual machines to develop the application.
+
+https://www.quora.com/What-is-Serverless-Computing#
+
+
+
+I'll try to keep this simple: the phrase “serverless” doesn’t mean servers are no longer involved. It simply means that developers no longer have to think "that much" about them. Computing resources get used as services without having to manage around physical capacities or limits.
+
+Let's take for example AWS Lambda. "Lambda allows you to NOT think about servers. Which means you no longer have to deal with over/under capacity, deployments, scaling and fault tolerance, OS or language updates, metrics, and logging."
+
+
+What are microservices?
+
+Microservices are a specific way to build service oriented architectures: The services tend to be smaller and the protocols are lightweight. REST+JSON for example are very common protocols in a microservice architecture, but also AMQP.
+
+What is serverless?
+
+Serverless architectures consist of two different concepts[3] [4]
+
+    Function as a Service (FaaS)
+    Backend as a Service (BaaS)
+
+From my article Purposes of the serverless architecture style:
+
+    When using a BaaS you are not building APIs anymore to which your client application talks to. Instead your client application talks to the database directly with a lean and generic authentication layer in front of the database.
+
+    Often an application backend must perform long running asynchronous tasks, this is where FaaS comes in. A function as a service solution provides you the possibility to upload a piece of code which should be executed on a specific event. For example, when a record has been inserted in the BaaS.
+
+Serverless architectures are more efficient in sharing resources. For example: An application of customer A could use the same multitenancy BaaS as the application of customer B, C and D. Subsequently you all theses customers will share the operations costs of the BaaS. Furthermore FaaS customers pay for the execution count of a function in contrast to microservices where you pay for running processes regardless whether there is some load or not.
+
+IMO there is the risk that you mess up your architecture with a set unmaintainable functions (when using FaaS) and that you end up without a glue which functions depend on each other.
+
+Footnotes
+
+[1] Purposes of the serverless architecture style
+
+[2] Purposes and trade-offs of the microservice architecture style
+
+[3] Purposes of the serverless architecture style
+
+[4] Serverless Architectures
+
+
+https://www.quora.com/What-is-the-relationship-between-Serverless-Computing-and-microservices
+
+imilarly, microservices developers—or 
+DevOps teams—will most likely realize that a fully decomposed design with too 
+much granularity is not a panacea either, because it lacks the balance of a practical 
+approach to deployment, monitoring, fault isolation, management and control.
+
+
+
+
+1. Lightweight containers
+Does the platform provide a lightweight, dynamic container? This is probably the 
+top requirement. The typical application server in J2EE
+®
+ style is too cumbersome 
+and too heavy and offers too little value for this new category of applications.
+2. Polyglot programming environment
+Can the platform support a polyglot style environment—in other words, more 
+than one programming model? The platform itself should never force particular 
+programming model, style or language. Instead it should be “agnostic” and deliver 
+multi-channel, multi-container capability wherein a single instance can host native 
+code, .NET, Java and Spring™ Blueprint, etc.  
+3. Out-of-the-box capabilities
+What out-of-the-box capabilities does this platform have to reduce implementation 
+overhead? For example, how quickly can a messaging infrastructure be 
+implemented? How costly is it to operate? How well integrated are the framework’s 
+capabilities? Is the platform capable of late binding between the interface and the 
+service implementation?  
+4. Interoperability on security
+How much standardization for interoperability on security is provided? Are 
+there capabilities for certificate management? Are different styles of credentials 
+supported within a given implementation and—very importantly—is that capability 
+abstracted out of the service implementation? A big mistake is to select a 
+technology in which security, interconnectivity and interoperability are baked into 
+the service implementation itself. They must be separate.
+5. Mediation and intelligent routing
+Does the technology provide a mediation and intelligent routing layer? All 
+microservices-based architectures end up having multiple instances of the same 
+kind of functionality to support scaling. Therefore, one of the challenges is how to 
+effectively route the right request to the right instance of a microservice, and how 
+to mitigate and mediate that traffic. Mediation and intelligent routing address this 
+problem. This kind of gateway functionality is very critical.
+6. Hot “swap-ability”
+Does the platform support hot-swapping of microservices? Getting a container 
+provisioned at run-time is just one aspect. If microservices are replaced, deprecated 
+or new services are added, how dynamic the changes are is another aspect to 
+consider. 
+7. Monitoring and manageability
+Considering all the benefits of microservices, one of the challenges is that 
+microservices can be harder to manage, control and isolate faults due to the highly 
+distributed nature of the architectural style. How will IT operations figure out where 
+any problem resides? How will they monitor the system to discover what’s failing, 
+what’s working well and what’s not working well? How will they perform upgrades 
+and corrections? Any technology platform, therefore, should include the ability 
+to monitor an end-to-end implementation based on microservices in a way that 
+doesn’t require any instrumentation to be put into the microservice itself.  
+
+
+http://www.semantikoz.com/blog/microservices-tribes/
+https://www.google.co.in/imgres?imgurl=https%3A%2F%2Fimage.slidesharecdn.com%2Fnirmata-multicloud-microservices-devopssummit-2015-v3-151105220922-lva1-app6892%2F95%2Fmulticloud-microservices-devops-summit-silicon-valley-2015-2-638.jpg%3Fcb%3D1446829217&imgrefurl=https%3A%2F%2Fwww.slideshare.net%2Fnirmata%2Fmulticloud-microservices-devops-summit-silicon-valley-2015&docid=sDNZktPEpIuf7M&tbnid=n8xAs0v0v3Uq_M%3A&vet=10ahUKEwiB36i07_PUAhUFsY8KHWhfDz0QMwgoKAQwBA..i&w=638&h=479&bih=659&biw=1366&q=microservices%20cost%20benefits%20in%20cloud%20environment&ved=0ahUKEwiB36i07_PUAhUFsY8KHWhfDz0QMwgoKAQwBA&iact=mrc&uact=8
+
+
+
+ Micro Services and Web Services are two different concepts of Application Development Architecture, which can be differentiated from its layered architecture and development style. This blog gives more details about these concepts and the difference between Web Services and Micro Services.
+What is Web Service?
+
+Web Service is a way to expose the functionality of an application to other application, without a user interface. It is a service which exposes an API over HTTP.
+
+Web Services allow applications developed in different technologies to communicate with each other through a common format like XML, Jason, etc. Web services are not tied to any one operating system or programming language. For example, an application developed in Java can communicate with the one developed in C#, Android, etc., and vice versa. 
+
+Web Service is a connection technology, a way to connect services together into a Service Oriented Architecture (SOA).
+What is Micro Service?
+
+Micro Service is independently deployable service modeled around a business domain. It is a method of breaking large software applications into loosely coupled modules, in which each service runs a unique process and communicates through APIs. It can be developed using messaging or event-driven APIs, or using non-HTTP backed RPC mechanisms.
+
+Micro Services are designed to cope with failure and breakdowns of large applications. Since multiple unique services are communicating together, it may happen that a particular service fails, but the overall larger applications remain unaffected by the failure of a single module.
+Use-Case Representation
+
+Let us understand these concepts with the help of an example of Online Shopping Center.
+
+In figure-1: The Online Shopping Center Web Application is developed in Monolithic Architecture. In this application, there is one Web Service which communicates with web application and database. So this web service might be performing many functional tasks related to database operations. 
+
+
+Web Services could be of any size, including large enterprise apps retrofitted with APIs that too many other apps depended on. Although "micro" in Micro Services, the basic concept is that each service performs a single function.
+
+For example, one of the largest eCommerce portal, Amazon, has migrated to Micro Services. They get countless calls from a variety of applications, including applications that manage the Web Services API as well as the portal, which would have been simply impossible to handle for their old, two-tiered architecture.
+
+Applications built as Micro Services can be broken into multiple component services and this service can be a Web Service, which should run unique process and then redeployed independently without compromising the integrity of an application. 
+
+http://www.tatvasoft.com/blog/the-difference-between-micro-services-and-web-services/
+
+Micro Services style is usually organized around business capabilities and priorities. Unlike a traditional monolithic development approach, where different teams have a specific focus on, say, UIs, databases, technology layers, or server-side logic, Micro Services architecture utilizes cross-functional teams. The responsibilities of each team are to make specific products based on one or more individual services communicating via message bus. It means that when changes are required, there won’t necessarily be any reason for the project, as a whole, to take more time or for developers to have to wait for budgetary approval before individual services can be improved. Most development methods focus on projects: a piece of code that has to offer some predefined business value must be handed over to the client, and is then periodically maintained by a team. But in Micro Services, a team owns the product for its lifetime.
+
+In a monolithic service oriented architecture deployment, each small change meant that the entire monolith needed to be rebuilt and this, in turn, meant that re-builds weren't happening as rapidly as they should.
+
+A Web Service is a service offered by an application to another application, communicating with each other via the World Wide Web. 
+
+http://www.tatvasoft.com/blog/the-difference-between-micro-services-and-web-services/
+
+https://www.strathweb.com/2017/01/building-microservices-with-asp-net-core-without-mvc/
+
+The .Net framework has a number of technologies that allow you to create HTTP services such as Web Service, WCF and now Web API. There are a lot of articles over the internet which may describe to whom you should use. Now a days, you have a lot of choices to build HTTP services on .NET framework. In this article, I would like to share my opinion with you over Web Service, WCF and now Web API. For more information about Web API refers What is Web API and why to use it ?.
+Web Service
+
+    It is based on SOAP and return data in XML form.
+
+    It support only HTTP protocol.
+
+    It is not open source but can be consumed by any client that understands xml.
+
+    It can be hosted only on IIS.
+
+WCF
+
+    It is also based on SOAP and return data in XML form.
+
+    It is the evolution of the web service(ASMX) and support various protocols like TCP, HTTP, HTTPS, Named Pipes, MSMQ.
+
+    The main issue with WCF is, its tedious and extensive configuration.
+
+    It is not open source but can be consumed by any client that understands xml.
+
+    It can be hosted with in the applicaion or on IIS or using window service.
+
+WCF Rest
+
+    To use WCF as WCF Rest service you have to enable webHttpBindings.
+
+    It support HTTP GET and POST verbs by [WebGet] and [WebInvoke] attributes respectively.
+
+    To enable other HTTP verbs you have to do some configuration in IIS to accept request of that particular verb on .svc files
+
+    Passing data through parameters using a WebGet needs configuration. The UriTemplate must be specified
+
+    It support XML, JSON and ATOM data format.
+
+Web API
+
+    This is the new framework for building HTTP services with easy and simple way.
+
+    Web API is open source an ideal platform for building REST-ful services over the .NET Framework.
+
+    Unlike WCF Rest service, it use the full featues of HTTP (like URIs, request/response headers, caching, versioning, various content formats)
+
+    It also supports the MVC features such as routing, controllers, action results, filter, model binders, IOC container or dependency injection, unit testing that makes it more simple and robust.
+
+    It can be hosted with in the application or on IIS.
+
+    It is light weight architecture and good for devices which have limited bandwidth like smart phones.
+
+    Responses are formatted by Web API’s MediaTypeFormatter into JSON, XML or whatever format you want to add as a MediaTypeFormatter.
+
+To whom choose between WCF or WEB API
+
+    Choose WCF when you want to create a service that should support special scenarios such as one way messaging, message queues, duplex communication etc.
+
+    Choose WCF when you want to create a service that can use fast transport channels when available, such as TCP, Named Pipes, or maybe even UDP (in WCF 4.5), and you also want to support HTTP when all other transport channels are unavailable.
+
+    Choose Web API when you want to create a resource-oriented services over HTTP that can use the full features of HTTP (like URIs, request/response headers, caching, versioning, various content formats).
+
+    Choose Web API when you want to expose your service to a broad range of clients including browsers, mobiles, iphone and tablets.
+
+What do you think?
+
+I hope, you have got when to use WCF, Web API and Web Service. I would like to have feedback from my blog readers. Your valuable feedback, question, or comments about this article are always welcome. 
+
+http://www.dotnettricks.com/learn/webapi/difference-between-wcf-and-web-api-and-wcf-rest-and-web-service
+https://www.future-processing.pl/blog/microservices-with-web-api-and-azure-architecture/
+https://dzone.com/articles/10-differences-between-wcf-and
+
+https://dzone.com/articles/10-differences-between-wcf-and
+https://www.mulesoft.com/resources/api/microservices-vs-monolithic
+
+
+
+Microservices based architecture has got a lot of media traction during the last few years. Plenty of blogs and articles have already been written about the benefits of microservices based architecture. Its nothing but a unique way of designing applications as different small components, which can be independently deployed as individual services.
+ 
+
+In short, microservice architecture is nothing but an approach to application development, where an application is dissected to different components, and each application components are developed individually,packaged individually, and deployed individually, in individual processes.
+ 
+
+These services can often communicate with each other using mechanisms like HTTP REST APIs. These different components are often developed by individual teams, and are deployed separately by often different mechanisms. Most of the times, these different services are written in different programming languages. To understand microservices based architecture, one should first go through the more adopted and standard monolithic architecture of application development.
+
+ 
+
+    Monolithic applications are built as a single package, that has all required components are services included. 
+
+ 
+
+Mostly a web application has two primary components.
+
+    A Relational Database.
+    A Server Side Application.
+
+The Server side application here will do the heavy lifting of whatever operations that happens. The Server side application will take care of handling the HTTP requests from the clients, Retrieving data from database, Update database with new data, Giving proper HTML response to the clients.
+
+
+Monolithic Application
+
+This is the traditional way of building web applications. Here all the business logic for servicing a user request is packaged into a single application process(which will typically be running in an application server platform). All different features of the application is written as separate modules and classes and will ultimately be packaged into a single large application. For example, if the application is made in Java, then the all the components is packaged into a war file and is deployed to a tomcat, jboss or a jetty server.  If the application is built in Python Django or Rails then the same is deployed as an entire application directory structure. 
+
+http://www.slashroot.in/difference-between-monolithic-and-microservices-based-architecture
+
+https://trello.com/c/YUDwlR03/79-what-are-the-pros-and-cons-of-monolithic-vs-microservice-architectures
+
+https://www.altoros.com/microservices-vs-monolithic-architecture-pros-cons-cloud-foundry-paas.html
+
+Common areas for microservices include the following:
+
+    User or account information
+    Authorization and session management
+    Preferences or configuration settings
+    Notifications and communications services
+    Photos and media, especially metadata
+
+Steps for Migrating an App
+
+After a set of classes has been identified as a candidate to become a microservice, the next steps include:
+
+    Leaving the existing code in place and operational in the legacy application to facilitate rollback
+    Creating a new code repository, or at least a sub-directory in your existing repository
+    Copying the classes into the new location
+    Writing a view layer that provides the HTTP API hooks and formats the response documents in the correct manner
+    Formulating the new code as a separate application (create an app.yaml)
+    Deploying your new microservice as a service or separate project
+    Testing the code to ensure that it is functioning correctly
+    Migrating the data from the legacy app to the new microservice (see below for a discussion)
+    Altering your existing legacy application to use the new microservices application
+    Deploying the altered legacy application
+    Verifying that everything works as expected and that you don't need to roll back to the legacy application
+    Removing any dead code from the legacy application
+
+
+https://cloud.google.com/appengine/docs/standard/go/microservice-migration
+
+Microservices are an architectural approach to creating cloud applications, where each application is built as a set of services. Each service runs in its own processes and communicates through application programming interfaces (API).
+
+Services are built around specific business logic, written in any language and they are independently scalable, upgradeable and deployable. When an application is broken up into its component services, changes only affect specific services. Likewise, each service can independently scale in response to demand without consuming unnecessary resources.
+
+Here’s some history on how we’ve moved to using the cloud as a platform: International Data Corporation (IDC) has outlined a generational shift in IT patterns called the First, Second and Third platforms.
+
+The First Platform is made up of mainframe, mini computers with terminals as the user interface. The Second Platform saw the introduction of PCs, LANs, client-server architecture, and the Internet, with PCs as the main user interface devices. The Third Platform, cloud native, is the domain of mobile, cloud, big data and social. The majority of user interactions there take place through mobile devices.
+
+Each succeeding platform makes different architectural choices to meet the challenges of scaling and reliability models.
+
+    The First Platform has custom hardware and software; it uses a centralized software architecture and scales vertically to serve thousands of apps and millions of users.
+    The Second Platform is based on enterprise hardware and software. Client-server software architecture and vertical scaling are used to serve tens of thousands of apps and hundreds of millions of users.
+    The Third Platform employs distributed software over horizontally scaling commodity hardware, the distributed nature of which enables linear scaling to serve millions of apps and billions of users.
+
+Though there are many differences between the Second and Third platforms, the fundamental shift from enterprise to low-cost commodity hardware ushers in a level of cost advantage that makes large-scale cloud infrastructure possible. However, the shift from reliable enterprise hardware to a commodity alternative pushes the resiliency requirements from the underlying hardware up to the enterprise application.
+
+Historically, enterprise applications were built as monolithic units in three main tiers: a client-side user interface, a database, and a server-side application.
+
+The server-side application would handle HTTP requests, execute business logic, store, retrieve and update data from the database, and populate the client-side interface. The application was a single, logical executable. Any changes to the system involved building and deploying a new version of the server-side application. As more applications were deployed to the cloud, changes to any part of the application would cause the whole application to be rebuilt and redeployed. More resources were required to scale the entire application than the necessary portion of the application that needed scaling.
+
+Cloud-native applications must be designed so that they can tolerate service failures. When a service fails, the application must respond as gracefully as possible. Thus, microservices require a sophisticated monitoring and logging setup for each individual service. It’s important to quickly detect failures so you can restore the service or substitute another, similar service.
+
+A microservices-based architecture promotes an “API First” approach, decoupling APIs from their implementations for more agile development. It also works well for the continuous delivery software development process.
+
