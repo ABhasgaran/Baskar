@@ -1,0 +1,117 @@
+ We hope you have your NGINX Plus instance up and running, but have you had a chance to test session persistence? Session persistence, also known as sticky sessions, is used when you need to ensure that once a client connects to a particular backend server it continues to communicate with the same backend server. NGINX Plus has several methods for supporting session persistence, including inserting a Cookie, monitoring a Cookie set by the backend server and more. Here are some articles that provide more details on session persistence:
+
+    Enabling Session Persistence
+http://email.nginx.com/a0400B05lF0W001FoXJ4Yr9
+    Session Persistence with NGINX Plus
+http://email.nginx.com/ZXJYr05290000l0Wp40BFF4
+
+
+We hope you have your NGINX Plus instance up and running, but have you had a chance to try out caching? Caching is one of the easiest and quickest ways to increase the performance of your site. NGINX Plus is a very powerful and flexible caching solution that can be tailored to meet your needs and includes a cache purge API that let’s you remove items from the cache before they expire. Here are a few articles that explain how to use NGINX Plus caching: 
+
+
+    NGINX Content Caching
+http://email.nginx.com/HF0040l0JrvW5FY0B5X00R9
+    A Guide to Caching with NGINX
+http://email.nginx.com/rY0S0F450XwBWJF5r00l090
+    Content Caching with NGINX Plus
+http://email.nginx.com/c0Y04lrF0BJX059Fx0WT500
+
+
+We hope you have your NGINX Plus instance up and running, but have you had a chance to test active health checks? Active health checks help make sure that errors with backend servers are caught by NGINX Plus before they impact your users.
+
+NGINX Plus actively monitors the health of your backends servers and removes failed servers from the load-balancing rotation, returning them when they become healthy. These checks are configurable and can pick up application specific errors. Here are some articles to help you better understand how to use active health checks: 
+
+
+
+    Active Health Monitoring
+http://email.nginx.com/q5FF090WBO0JY504X0ra00l
+    Application Health Checks with NGINX Plus
+http://email.nginx.com/A50P0YFX40J95rl00B0b0WF
+
+Microservices are the best way to deploy modern applications that meet today’s unprecedented requirements for scale and speed of data across containerized workloads and services. By packaging an application in a container along with all its dependencies, Docker enables an application developed on a laptop to run in the same way as on a production server. Being in production, however, introduces a set of challenges around connectivity, load balancing to scale and handle increased load, securing against malicious users, and sharing resources with potentially hundreds of other apps.
+
+NGINX enables high performance web architectures to improve user experience, without incurring unnecessary costs in capital or time.
+
+NGINX is the fastest growing and highest performing software for modern web architectures. Today over 50% of the busiest web sites in the world use NGINX to accelerate online user experience, and it's deployed on over 300 million web sites.
+
+Successful online services such as Netflix, Dropbox, Pinterest, Airbnb, WordPress.com, Box, Instagram, GitHub, SoundCloud, Zappos, and Yandex all use NGINX as part of their infrastructure. 
+
+Specialties
+
+Web Server, Load Balancer, Web Acceleration, Content Caching, Media Streaming, DevOps, Microservices
+
+a reverse proxy is a type of proxy server that retrieves resources on behalf of a client from one or more servers. These resources are then returned to the client like they originated from the Web server itself.
+
+NGINX is a free, open-source, high-performance HTTP server and reverse proxy, as well as an IMAP/POP3 proxy server. NGINX is known for its high performance, stability, rich feature set, simple configuration, and low resource consumption. NGINX is one of a handful of servers written to address the C10K problem.
+
+What is the c10k problem?
+The C10k problem is the problem of optimising network sockets to handle a large number of clients at the same time. The name C10k is a numeronym for concurrently handling ten thousand connections.
+
+NGINX provides all of the core features of a web server, without sacrificing the lightweight and high-performance qualities that have made it successful, and can also serve as a proxy that forwards HTTP requests to upstream web servers (such as an Apache backend) and FastCGI, memcached, SCGI, and uWSGI servers. NGINX does not seek to implement the huge range of functionality necessary to run an application, instead relying on specialized third-party servers such as PHP-FPM, Node.js, and even Apache.
+
+
+
+    Although several workers can be started, only one of them actually does any work.
+    A worker can handle no more than 1024 simultaneous connections.
+    The UDP proxy functionality is not supported.
+
+
+One of the processes is the master process and another is the worker process
+nginx -s stop 	fast shutdown
+nginx -s quit 	graceful shutdown
+nginx -s reload 	changing configuration, starting new worker processes with a new configuration, graceful shutdown of old worker processes
+nginx -s reopen 	re-opening log files
+
+ommon applications of very high number of connections include pub/sub servers, chat, file servers, web servers, and software-defined networking.
+
+The C10k problem is the problem of optimising network sockets to handle a large number of clients at the same time.[1] The name C10k is a numeronym for concurrently handling ten thousand connections.[2] Note that concurrent connections are not the same as requests per second, though they are similar: handling many requests per second requires high throughput (processing them quickly), while high number of concurrent connections requires efficient scheduling of connections. In other words, handling many requests per second is concerned with the speed of handling requests, whereas a system capable of handling high number of concurrent connections does not necessarily have to be a fast system, only one where each request will deterministically return a response within a (not necessarily fixed) finite amount of time.
+
+The problem of socket server optimisation has been studied because a number of factors must be considered to allow a web server to support many clients. This can involve a combination of operating system constraints and web server software limitations. According to the scope of services to be made available and the capabilities of the operating system as well as hardware considerations such as multi-processing capabilities, a multi-threading model or a single threading model can be preferred. Concurrently with this aspect, which involves considerations regarding memory management (usually operating system related), strategies implied relate to the very diverse aspects of the I/O management
+
+
+One of the processes is the master process and another is the worker process. If nginx does not start, look for the reason in the error log file logs\error.log
+Nginx/Windows runs as a standard console application (not a service),
+One of the processes is the master process and another is the worker process. If nginx does not start, look for the reason in the error log file logs\error.log Nginx/Windows runs as a standard console application (not a service),
+
+
+Nginx helps your applications to deliver superior performance as well as, render reliability and security. It enhances the complete application delivery platform and has proved to be an incredibly powerful web server and reverse proxy. If you are keen on building amazing applications, Nginx helps you to maintain the reputation and therefore, facilitate better and effective customer experience.
+Check my NGINX config (nginx -t).
+
+A reverse proxy server is a web server that accepts requests and sends them to another web server which actually creates the responses for those requests. The responses are sent back to the proxy server who forwards them to the clients who issued the corresponding requests.
+
+NGINX has no UI, it’s all command line driven but don’t let that put you off, the CLI interface only has three commands you actually need:
+
+Brotli can compress files and save you around 10-20% bandwidth over what GZIP can do! Those are some significant savings.
+
+
+The Streaming APIs give developers low latency access to Twitter’s global stream of Tweet data. A streaming client will be pushed messages indicating Tweets and other events have occurred, without any of the overhead associated with polling a REST endpoint.
+
+Connecting to the streaming API requires keeping a persistent HTTP connection open. In many cases this involves thinking about your application differently than if you were interacting with the REST API. For an example, consider a web application which accepts user requests, makes one or more requests to Twitter’s API, then formats and prints the result to the user, as a response to the user’s initial request:
+https://www.quora.com/What-is-meant-by-streaming-API
+It pushes data to the client as and when it's available and there is no need for the client to poll the requests to the server for newer data. This approach of maintaining a persistent connection reduces the network latency significantly when a server produces continous stream of data like say, today's social media channels. These APIs are mostly used to read/subscribe to data.
+
+Nginx divided its job into Worker Connections and Worker Process. Here worker connections are managing the request made and the response obtained by users on the web server; in the same time these request are passed to its parent process which is Worker Process.
+
+A single worker connection (See in Diagram: Worker Connections) can handle around 1024 connections at a time. It is the greatest ability of a worker connection.
+
+There can “n” numbers of the worker process in Nginx based on the type of server you have and each worker process handle different jobs so that it can handle more numbers of concurrent requests.
+
+Finally, the worker process transfers the requests to Nginx Master Process which quickly responds to the unique requests only.
+
+Nginx is Asynchronous; that means each request in Nginx can be executed concurrently without blocking each other like a water pipe. So this way Nginx enhances the virtually shared resources without being dedicated and blocked to one connection.
+
+That is why Nginx is able to do the same work with less amount of memory and utilizes that memory in an optimized way.
+
+A reverse proxy server is a type of proxy server that typically sits behind the firewall in a private network and directs client requests to the appropriate backend server. A reverse proxy provides an additional level of abstraction and control to ensure the smooth flow of network traffic between clients and servers
+
+
+A typical usage of a reverse proxy is to provide Internet users access to a server that is behind a firewall. Reverse proxies can also be used to balance load among several back-end servers, or to provide caching for a slower back-end server.
+
+In computer networks, a reverse proxy is a type of proxy server that retrieves resources on behalf of a client from one or more servers. These resources are then returned to the client like they originated from the Web server itself.
+
+
+A reverse proxy server is a type of proxy server that typically sits behind the firewall in a private network and directs client requests to the appropriate backend server. A reverse proxy provides an additional level of abstraction and control to ensure the smooth flow of network traffic between clients and servers.
+
+https://rehansaeed.com/nginx-asp-net-core-depth/
+https://www.nginx.com/blog/tutorial-proxy-net-core-kestrel-nginx-plus/
+
