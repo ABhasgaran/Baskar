@@ -1,0 +1,74 @@
+npm install yo -g
+npm install generator-aspnet -g
+
+kick start of asp.net core
+without needing visual studio
+
+we need to install npm install - command line tool
+
+code .
+yo aspnet - project templates just
+name of the application
+empty application
+console application
+web application
+web api application
+nancy asp.net application
+class library
+unit test project
+
+web application
+create project
+dnu restore to restore the packages
+dnu build to build the application
+dnx web
+dnu is the wrapper for dotnet
+every project is now packaged
+kestrel and the local web server
+
+packages are restored
+build the project
+dnx web - kestrel is the cross platform webserver
+application started
+localhost:5000
+
+hosting environment : production
+it is set in the setup
+
+yo aspnet:mvccontroller mynewcontroller - scafolding
+microservices - manually in visual studio
+
+code . - visual studio code
+it comes in project structure
+project.json - we have all the project packages
+kestrel - web server
+
+empty contoller for actionresult
+its open source too
+https://www.compose.com/articles/configuring-rabbitmq-exchanges-queues-and-bindings-part-2/
+
+ https://stackoverflow.com/questions/35748700/how-to-post-messages-to-rabbitmq-from-sql-server
+https://docs.particular.net/transports/sql/operations-scripting
+https://visualstudiomagazine.com/articles/2015/09/30/microservices-csharp.aspx
+https://www.codeproject.com/Articles/193611/DotNetMQ-A-Complete-Message-Queue-System-for-NET
+https://www.simplethread.com/using-rabbitmq-with-c-and-net/
+https://www.compose.com/articles/configuring-rabbitmq-exchanges-queues-and-bindings-part-2/
+
+show my snaps in the asp.net core app
+DI is used, perhaps the user
+we hv the service
+from external peices
+wehave to knw every service
+this particular instance service
+dependency on other this
+how to get it properly started
+we need to add the class mons
+public homecontroller - instance of the mons service
+constructor
+create instance of the home constructor
+viewbag.mons
+view engine
+click we get diff snaps
+configure servcices - starpup.cs
+already been loaded
+startup methid -load all we needed
