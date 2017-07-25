@@ -1,0 +1,466 @@
+
+
+Is it recommended to have a .NET web application as RabbitMQ producer?
+
+I am asking this because it is not recommended to have a RabbitMQ consumer insider IIS web application : https://stackoverflow.com/a/25571635/2107373
+
+In my case, the ASP.NET web application is hosted on IIS and runs behind a load balancer (multiple instances).
+
+
+I have something in production that works quite reliably. It only publishes messages so the only concern is managing the connection to the broker. Depending on the volume of messages you don't want to open a connection, publish a single message and then close it.
+
+I used caching to deal with this issue. The connection object (actually an EasyNetQ bus) is cached using a sliding expiration and a CacheItemRemoved callback is registered to close the connection if it hasn't been used within the window lifetime. I also set the priority to CacheItemPriority.NotRemovable as well.
+
+I am not sure how your caching is set up across your web farm so there may be serialization issues. Caching it in-memory on each individual server should work though.
+
+
+
+
+I have something in production that works quite reliably. It only publishes messages so the only concern is managing the connection to the broker. Depending on the volume of messages you don't want to open a connection, publish a single message and then close it.
+
+I used caching to deal with this issue. The connection object (actually an EasyNetQ bus) is cached using a sliding expiration and a CacheItemRemoved callback is registered to close the connection if it hasn't been used within the window lifetime. I also set the priority to CacheItemPriority.NotRemovable as well.
+
+I am not sure how your caching is set up across your web farm so there may be serialization issues. Caching it in-memory on each individual server should work though.
+
+https://stackoverflow.com/questions/31450384/rabbitmq-producer-insider-net-web-application
+
+
+
+In general, a message bus (such as RabbitMQ, but not limited to) allows for a reliable queue of job processing.
+
+What this means to you in terms of a web application is the ability to scale your app as demand grows and to keep your UI quick and responsive.
+
+Instead of forcing the user to wait while a job is processed they can request a job to be processed (for example, clicking a button on a web page to begin transcoding a video file on your server) which sends a message to your bus, let's the backend service pick it up when it's turn in the queue comes up, and maybe notify the user that work has/will begin. You can then return control to the UI, so the user can continue working with the application.
+
+In this situation, your web interface does zero heavy lifting, instead just giving the user visibility into stages of the process as you see fit (for example, the job could incrementally update database records with the state of process which you can query and display to your user).
+
+I would assume that any web application that experiences any kind of considerable traffic would have this type of infrastructure. While there are downsides (network glitches could potentially disrupt message delivery, more complex infrastructure, etc.) the advantages of scaling your backend become increasingly evident. If you're using cloud services this type of infrastructure makes it trivial to add additional message handlers to process your jobs by subscribing to the job queue and just picking off messages to process.
+
+
+
+
+
+I just did a Google search and came up with the following:
+
+    Reddit.com - http://highscalability.com/blog/2010/5/17/7-lessons-learned-while-building-reddit-to-270-million-page.html?currentPage=2
+
+    Digg.com - http://about.digg.com/blog/how-digg-is-built
+
+    Poppen.De - http://highscalability.com/blog/2010/4/12/poppende-architecture.html
+
+That should get you started, at least.
+
+
+
+
+
+
+
+I have to implement a asp.net web api which acts as a subscriber to rabbitMQ. The windows service is going to publish message to the web api services. There will be more than one instance of web api running on production enviornment. I am not sure how to open up the subscriber channel on web api and keep it open untill the IIS restarts. There will be one publisher and several consumer.
+
+Can anyone please guide with some sample code to start with?
+
+
+https://stackoverflow.com/questions/25565769/easynetq-with-asp-net-web-api-as-subscriber/25571635#25571635
+
+
+
+Generally RabbitMQ subscriptions don't work well with IIS hosted applications because you have no control over when the application is running. IIS will recycle, stop and start the app as it sees fit.
+
+If you must do it, open the connection to RabbitMQ and start subscribing when the application starts, in Global.asax.cs for example, and make sure to dispose of everything properly when it closes.
+
+You are far better off building a windows service for the subscription and either writing to a shared store that the IIS hosted web service can access, or alternatively self-hosting the API inside the windows service.
+
+
+I need to open the subscription in web api on IIS because it acts as a push service for rest of the application. When you say during application_end dispose of objects you mean the subscriberbus.Dispose?
+Also does ll subscribers with the same objecttype i.e. bus<mymessage>.subscribe("localhost") will get the message when publisher publish with the same object type?
+
+Yes, EasyNetQ routes by message type, so subscribers of a type will get all published messages of that type.
+
+	
+You need to bus.Dispose(); when your application exits. That will shut down all the consumers (subscribers) too.
+
+
+
+
+
+
+
+
+
+
+
+My question is simple. I wanna use rabbitmq to make message queue by using asp.net webapi. On the other hand, GetAllQueues not returning any message. Message is always null. Below code perfect in console application but message always null when i run below post :
+
+http://localhost:53301/api/CustomerPipline/?queueName=test123..
+
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Web.Http;
+using RabbitMQ.Client;
+using System.Text;
+using RabbitMQ.Client.Events;
+using System.Diagnostics;
+using RabbitMQ.Client.Exceptions;
+
+namespace Atom.Mqpipline.Controllers
+{
+    public class CustomerPiplineController : ApiController
+    {
+        private static readonly string _queueName = "test123";
+
+
+        [HttpPost]
+        public HttpResponseMessage AddQueue(int customerId)
+        {
+
+           var  publisher = new Publisher(_queueName, "Hello RabbitMQ World!");
+            var resp = Request.CreateResponse(HttpStatusCode.OK, JsonConvert.SerializeObject("OK"));
+
+            return resp;
+        }
+        [HttpGet]
+        public HttpResponseMessage GetAllQueues(string queueName)
+        {
+            var consumer = new Consumer(queueName);
+            var resp = Request.CreateResponse(HttpStatusCode.OK, JsonConvert.SerializeObject(consumer.Message));
+            return resp;
+        }
+    }
+
+}
+
+public class RabbitMQService
+{
+    private readonly string _hostName = "localhost";
+
+    public IConnection GetRabbitMQConnection()
+    {
+        ConnectionFactory connectionFactory = new ConnectionFactory()
+        {
+            HostName = _hostName
+        };
+
+        return connectionFactory.CreateConnection();
+    }
+}
+public class Publisher
+{
+    private readonly RabbitMQService _rabbitMQService;
+
+    public Publisher(string queueName, string message)
+    {
+        _rabbitMQService = new RabbitMQService();
+
+        using (var connection = _rabbitMQService.GetRabbitMQConnection())
+        {
+            using (var channel = connection.CreateModel())
+            {
+                channel.QueueDeclare(queueName, false, false, false, null);
+                channel.BasicPublish("", queueName, null, Encoding.UTF8.GetBytes(message));
+            }
+        }
+    }
+}
+
+public class Consumer
+{
+    private readonly RabbitMQService _rabbitMQService;
+    public string Message { get; set; }
+    public Consumer(string queueName)
+    {
+
+        _rabbitMQService = new RabbitMQService();
+
+        using (var connection = _rabbitMQService.GetRabbitMQConnection())
+        {
+            using (var channel = connection.CreateModel())
+            {
+                var consumer = new EventingBasicConsumer(channel);
+                // Received event'i sürekli listen modunda olacaktir.
+                consumer.Received += (model, ea) =>
+                {
+                    var body = ea.Body;
+                    var message = Encoding.UTF8.GetString(body);
+                    Debug.WriteLine(message);
+                    Message = message;
+                };
+
+                channel.BasicConsume(queueName, true, consumer);
+            }
+        }
+    }
+}
+
+
+
+you could not call consumer. consumer action runs when received a message not when you call.
+
+    crete only one instance of Consumer on your app..
+    add a queue received message. or push message direct to client via signlr.
+
+
+
+
+We have a web application that queues messages onto RabbitMQ to be consumed by a different application on the backend and don't experience any issues.
+
+The problems mentioned in the question you refer to are to do with the unreliability of IIS app pool's not always being available to consume messages which shouldn't be an issue if you handle all of the work in creating and queueing a message within the scope of a user's request.
+
+If this is the case then the request is either processed successfuly - a message created and queued and a confirmation response is sent or there is an error - no message is sent and the user is notified by way of a different response.
+
+The biggest challenge we had was handling the possibility of duplicate messages sent - in our case we had a check on the consuming application to make sure the work wasn't done twice and also tied the RabbitMQ producer to the scope of the underlying (sql) database transaction so it was only sent on a successful commit.
+
+There's also a useful answer here as to the advantages of using RabbitMQ as a mechanism to implement backend job processing: Use of messaging like RabbitMQ in web application?
+
+
+
+I have something in production that works quite reliably. It only publishes messages so the only concern is managing the connection to the broker. Depending on the volume of messages you don't want to open a connection, publish a single message and then close it.
+
+I used caching to deal with this issue. The connection object (actually an EasyNetQ bus) is cached using a sliding expiration and a CacheItemRemoved callback is registered to close the connection if it hasn't been used within the window lifetime. I also set the priority to CacheItemPriority.NotRemovable as well.
+
+I am not sure how your caching is set up across your web farm so there may be serialization issues. Caching it in-memory on each individual server should work though.
+
+So next up is RabbitMQ. Fast, lightweight, and popular. In just a few hours my colleague stood up a local Ubuntu LTS VM with a RabbitMQ installation. We're doing pubsub so we created a single fanout exchange called "test-exchange." To keep it simple the test-exchange broadcasts its messages to a single queue called "test-queue." For this spike the producer (publisher) is a .NET console app that does nothing but publish the current time. It requires the RabbitMQ.Client nuget package.
+Code:
+
+using System;
+using System.Text;
+using RabbitMQ.Client;
+
+namespace RabbitPublisher
+{
+    internal class Program
+    {
+        private static void Main(string[] args)
+        {
+            var factory = new ConnectionFactory
+            {
+                HostName = "your.server.domain.com",
+                Port = 5672,
+                UserName = "square",
+                Password = "widget",
+                VirtualHost = "/"
+            };
+
+            using (var connection = factory.CreateConnection())
+            {
+                using (var channel = connection.CreateModel())
+                {
+                    channel.ExchangeDeclare(exchange: "test-exchange", 
+                        type: "fanout", 
+                        durable: true);
+
+                    var message = "Current time: " + DateTime.Now.ToLongTimeString();
+                    var body = Encoding.UTF8.GetBytes(message);
+
+                    channel.BasicPublish(exchange: "test-exchange",
+                        routingKey: "",
+                        basicProperties: null,
+                        body: body);
+                }
+            }
+        }
+    }
+}
+
+The above publisher code is really a snippet that can be placed in any application that raises events for other applications to handle. This is the essence of message-driven architecture of course. The real problem for us to solve was the subscriber. Most blogs and RabbitMQ tutorials all show console apps. Not very helpful in a production scenario. I thought about it being a Windows Service. But they're a pain to debug and deploy.
+
+How about ASP.NET RESTful Web API? In our shop we're leaning in a microservices direction and for us that means smaller Web API apps. They're easy to write, debug, and deploy. Devs understand HTTP and no complicated WCF configuration required. Here's what I did and it's remarkably simple...
+
+I spun up a new ASP.NET Web API solution in Visual Studio. Then I added the RabbitMQ.Client nuget package. I added a folder named Bus and added this class to it:
+Code:
+
+using System;
+using System.Diagnostics;
+using System.Text;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+
+namespace RabbitSubscriber.Bus
+{
+    public static class MessageListener
+    {
+        private static IConnection _connection;
+        private static IModel _channel;
+
+        public static void Start()
+        {
+            var factory = new ConnectionFactory
+            {
+                HostName = "your.server.domain.com",
+                Port = 5672,
+                UserName = "square",
+                Password = "widget",
+                VirtualHost = "/",
+                AutomaticRecoveryEnabled = true,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(15)
+            };
+
+            _connection = factory.CreateConnection();
+            _channel = _connection.CreateModel();
+            _channel.ExchangeDeclare(exchange: "test-exchange", 
+                type: "fanout", 
+                durable: true);
+
+            var queueName = _channel.QueueDeclare().QueueName;
+
+            _channel.QueueBind(queue: queueName,
+                exchange: "test-exchange",
+                routingKey: "");
+
+            var consumer = new EventingBasicConsumer(_channel);
+            consumer.Received += ConsumerOnReceived;
+
+            _channel.BasicConsume(queue: queueName, 
+                noAck: true, 
+                consumer: consumer); 
+        }
+
+        public static void Stop()
+        {
+            _channel.Close(200, "Goodbye");
+            _connection.Close();
+        }
+
+        private static void ConsumerOnReceived(object sender, BasicDeliverEventArgs ea)
+        {
+            var body = ea.Body;
+            var message = Encoding.UTF8.GetString(body);
+            Debug.WriteLine("{0}", message);
+        }
+    }
+}
+
+The plumbing is very similar to the producer code. But notice the ConnectionFactory has two additional properties to recover from a network failure. This is very important to configure because something will go wrong and connections will be interrupted. In my testing I simulated a network outage on the subscriber server itself. We also took down the whole RabbitMQ server and brought it back up. Through both outages the connection was restablished with no problem. The Received event is handled by the delegate function ConsumerOnReceived. It just writes the message body out to the debug output window. In a real production app you'd want to discover what message you received and handle it. This is where a Gang of Four Builder pattern would come in handy. [Update: See Part 2 in this series for a real-world messaging example.]
+
+http://www.squarewidget.com/pubsub-using-rabbitmq-with-asp.net-web-api-subscribers
+https://dotnetcodr.com/2014/04/28/messaging-with-rabbitmq-and-net-c-part-1-foundations-and-setup/
+https://dotnetcodr.com/2017/04/19/using-the-redis-nosql-database-with-net-part-8-messaging/
+https://dotnetcodr.com/2015/11/09/domain-driven-design-with-web-api-extensions-part-6-domain-events-with-rabbitmq/
+http://www.csharpcity.com/2016/consuming-rabbitmq-messages-in-asp-net-mvc/
+https://www.rabbitmq.com/tutorials/tutorial-one-dotnet.html
+
+
+The connection abstracts the socket connection, and takes care of protocol version negotiation and authentication and so on for us. Here we connect to a broker on the local machine - hence the localhost. If we wanted to connect to a broker on a different machine we'd simply specify its name or IP address here.
+
+Next we create a channel, which is where most of the API for getting things done resides.
+
+To send, we must declare a queue for us to send to; then we can publish a message to the queue:
+
+using System;
+using RabbitMQ.Client;
+using System.Text;
+
+class Send
+{
+    public static void Main()
+    {
+        var factory = new ConnectionFactory() { HostName = "localhost" };
+        using(var connection = factory.CreateConnection())
+        using(var channel = connection.CreateModel())
+        {
+            channel.QueueDeclare(queue: "hello",
+                                 durable: false,
+                                 exclusive: false,
+                                 autoDelete: false,
+                                 arguments: null);
+
+            string message = "Hello World!";
+            var body = Encoding.UTF8.GetBytes(message);
+
+            channel.BasicPublish(exchange: "",
+                                 routingKey: "hello",
+                                 basicProperties: null,
+                                 body: body);
+            Console.WriteLine(" [x] Sent {0}", message);
+        }
+
+        Console.WriteLine(" Press [enter] to exit.");
+        Console.ReadLine();
+    }
+}
+
+Declaring a queue is idempotent - it will only be created if it doesn't exist already. The message content is a byte array, so you can encode whatever you like there.
+
+When the code above finishes running, the channel and the connection will be disposed.
+
+https://www.rabbitmq.com/dotnet-api-guide.html
+http://yassershaikh.com/introduction-to-rabbitmq-with-c-net-asp-net-and-asp-net-mvc-with-examples/
+
+his post assumes that you already have installed and configured RabbitMq on your system or on some server. Download .NET/C# RabbitMq’s client library from http://www.rabbitmq.com/dotnet.html or from rabbitmq-dotnet-client-3.1.4-dotnet-3.0.zip
+
+If RabbitMq has been installed on your server, you can view the management screen using this url : http://server-name:15672/, more on this you will find on this link.
+
+Incase you havent read about what RabbitMq is and how it works I strongly recommend you to read the following links first and then come back again to this post.
+
+    High-level Overview of AMQP 0-9-1 and the AMQP Model
+    RabbitMQ .NET Client Library User Guide
+
+Lets get started, first you’ll need to import the libraries(dll) u just downloaded.
+
+You can use the following class I have created, modify them to suit your requirement. Instead of hard-coding the Username, Password and other fields its better you define them in your config file and read from there.
+public static class BrokerHelper
+{
+    public static string Username = "guest";
+    public static string Password = "guest";
+    public static string VirtualHost = "/";
+    // "localhost" if rabbitMq is installed on the same server,
+    // else enter the ip address of the server where it is installed.
+    public static string HostName = "localhost";
+    public static string ExchangeName = "test-exchange";
+    public static string ExchangeTypeVal = ExchangeType.Direct;
+    public static string QueueName = "SomeQueue";
+    public static bool QueueExclusive = false;
+    public static bool QueueDurable = false;
+    public static bool QueueDelete = false;
+    public static string RoutingKey = "yasser";
+
+    public static IConnection Connection;
+    public static IModel Channel;
+    public static void Connect()
+    {
+        var factory = new ConnectionFactory();
+        factory.UserName = Username;
+        factory.Password = Password;
+        factory.VirtualHost = VirtualHost;
+        factory.Protocol = Protocols.FromEnvironment();
+        factory.HostName = HostName;
+        factory.Port = AmqpTcpEndpoint.UseDefaultPort;
+        Connection = factory.CreateConnection();
+        Channel = Connection.CreateModel();
+    }
+
+    public static void Disconnect()
+    {
+        Connection.Close(200, "Goodbye");
+    }
+
+    public static bool IsBrokerDisconnected()
+    {
+        if(Connection == null) return true;
+        if(Connection.IsOpen) return false;
+        return true;
+    }
+
+    public static void Publish(string message)
+    {
+        if (IsBrokerDisconnected()) Connect();
+
+        Channel.ExchangeDeclare(ExchangeName, ExchangeTypeVal.ToString());
+        Channel.QueueDeclare(QueueName, QueueDurable, QueueExclusive, QueueDelete, null);
+        Channel.QueueBind(QueueName, ExchangeName, RoutingKey);
+        var encodedMessage = Encoding.ASCII.GetBytes(message);
+        Channel.BasicPublish(ExchangeName, RoutingKey, null, encodedMessage);
+        Disconnect();
+    }
+}
+
+Almost Done ! Now that we have the above classes in place, publishing our message to rabbitMq will just be the following line of code :
+
+BrokerHelper.Publish("Hello World");
+
+Hope this helped.
