@@ -1,0 +1,612 @@
+https://www.rabbitmq.com/tutorials/tutorial-two-dotnet.html
+
+https://dotnetcodr.com/2014/04/28/messaging-with-rabbitmq-and-net-c-part-1-foundations-and-setup/
+https://dotnetcodr.com/2014/05/01/messaging-with-rabbitmq-and-net-c-part-2-persistence/
+
+
+
+At Hudl we use RabbitMQ to help us decouple some operations from impacting normal web requests. We smooth out spikes in write traffic and isolate long-running or CPU-intensive tasks. We first started looking at queueing certain operations after one coach almost brought down our entire site.
+
+The whole thing started one weekday afternoon. Hudl offers coaches the ability to upload Excel spreadsheets with their roster; we parse it and import that roster data. Coaches love it, we love it, all is well. One afternoon a coach, without realizing it, uploaded a million-row spreadsheet. That brought our Excel parsing SDK to its knees, which in turn brought that web server to its knees. No sweat, at the time we were running nine web servers. Problem was, the coach was impatient (I would be too) so he kept trying it again and again. One by one our web servers were falling over. It was a tense afternoon.
+
+We’ve since moved our Excel parsing, and lots of other functions, over to a separate cluster of servers and use a separate queuing service to communicate between clusters. Using a separate queue allows us to decouple the two layers of our system. If queues are running slow, it doesn’t impact web servers.
+
+After looking around at other queuing technologies, we eventually settled on RabbitMQ. It’s got a solid C# driver, is blazing fast, offers a nice management dashboard, and is super flexible. With flexibility naturally comes a learning curve; RabbitMQ is no different. I want to talk through some of the choices we made and lessons learned.
+RabbitMQ: Fast & Flexible
+
+RabbitMQ offers many options to balance performance and durability, and it has good documentation, too. For Hudl, we standardized on a single set of options and used that across all of our queues. We err on the side of durability. It’s worked great for us: we get the durability we want and still see performance enough to easily handle our load, which is typically not more than a few thousand messages per second. Here is the configuration we use at Hudl:
+
+    Queues are durable to keep us safe when RabbitMQ crashes.
+    The queue files live on EBS volumes. This keeps data safe if the server dies because we can re-attach the volume to a new server. Provisioned IOPS drives are critical to maintain performance. Normal EBS volumes have inconsistent performance.
+    Delivery-Mode=2. The call from the web server to enqueue a message doesn’t return until the message is received and “persisted”. Because we use durable queues that means written to disk.
+    We set Prefetch to 50 (via IModel.BasicQos(0, prefetchCount, false) ). There is no “best setting” for all systems, but the default of 0 is probably not ideal. This just means a client will grab 50 messages, wait until all are finished, and then grab 50 more. You’ll see better throughput this way. Go too high and you could have one server hogging all messages. Too low and you’ll be doing more round-trips to RabbitMQ more than you need.
+    We explicitly acknowledge messages when they are finished processing. This protects us when a queue consumer crashes in the middle of processing a message. RabbitMQ will automatically re-deliver the message to another consumer. Important note: Messages can be delivered or partially-processed more than once. Consumers must be written in a way that takes this into account.
+
+On To the Code!
+
+Our back-end code is written in C#. RabbitMQ has a great .NET client library. Some lessons we’ve learned:
+
+    Use a single IConnection per server (see the accepted answer on this question for a good explanation). All traffic to and from RabbitMQ can flow across that single persistent connection.
+    Don’t share IModels (“channels” in the RabbitMQ documentation) across threads.
+    We’ve invested a lot of time into our RabbitMQ code base. If we were starting today we’d use EasyNetQ, a wrapper around the RabbitMQ client that greatly simplifies the most common usage patterns.
+
+Let’s look at some simplified example code. First, we’ll add some code to initialize our singleton connection. We run this once per instance.
+public void InitializeRabbitConnection()
+{
+    ConnectionFactory = new ConnectionFactory()
+    {
+        HostName = "localhost",
+        Port = 5672,
+        UserName = "myapp",
+        Password = "password",
+        RequestedHeartbeat = 4, // heartbeat is what lets your code detect problems communicating with
+                                // the RabbitMQ server. A heartbeat of 4 will cause the server to send
+                                // a heartbeat 'ping' message every 4 seconds. If the client has not
+                                // received a ping in 8 seconds (heartbeat*2) then it will consider the
+                                // connection to be bad and throw a ConnectionShutdown event.
+    };
+    var SingletonConnection = ConnectionFactory.CreateConnection();
+    SingletonConnection.ConnectionShutdown += SingletonConnection_ConnectionShutdown; // handle disconnects
+}
+view raw
+rabbit_init.cs hosted with ? by GitHub
+
+Then we need a producer that pushes messages into a queue.
+public class Publisher {
+  private IModel _model;
+  
+  public Publisher(IConnection conn, string queueName) {
+    _model = conn.CreateModel();
+ 
+    // it's safe to declare queues that already exist as long as their properties are identical
+    // this runs on initialization every time - that will ensure all of your queues exist on app startup
+    model.QueueDeclare(queueName, true, false, false, null);
+    
+    // binds the given queue to the routingKey. We use the same string as both the queue name and routing key
+    model.QueueBind(queueName, "amq.direct", queueName);
+  }
+  
+  // serialize your message body however you want. JSON is nice because it's makes debugging a bit easier.
+  public void PublishMessage(string routingKey, byte[] body)
+  {
+      var props = _model.CreateBasicProperties();
+ 
+      // this is important, it tells the queue to make the message delivery 'durable'
+      props.DeliveryMode = 2;
+      if (props.Headers == null)
+      {
+          props.Headers = new Dictionary<string, object>();
+      }
+ 
+      _model.BasicPublish("amq.direct", routingKey, props, body);
+  }
+}
+view raw
+rabbit_producer.cs hosted with ? by GitHub
+
+Finally, the consumer. Consumers pull messages of the queue, one at a time, process the message, and then tell Rabbit “I got this”. Rabbit will then discard the message. If something goes wrong and we don’t Acknowledge the message, Rabbit will eventually re-deliver the message again. It’s important that consumers are implemented taking this into account. Messages could be processed more than once.
+public class Consumer {
+  private IModel _model;
+  private QueueingBasicConsumer _queue;
+  
+  public Consumer(IConnection conn, string queueName) {
+    _model = conn.CreateModel();
+    _model.BasicQos(0, 50, false); // setting a per-channel prefetch can help with your overall throughput. See
+                                   // http://www.rabbitmq.com/blog/2012/04/25/rabbitmq-performance-measurements-part-2/
+                                   // for more info.
+    
+    _queue = new QueueingBasicConsumer(model);
+    _model.BasicConsume(queueName, false, _queue);
+  }
+  
+  // this is obviously simplified from what you'd want to do. I'll leave it up to you to decide how to integrate
+  public void ProcessMessage<T>(TimeSpan timeout, Action<T> handler) {
+    object result;
+    if (!_queue.Queue.Dequeue(timeout, out result)) {
+      return;
+    }
+    
+    BasicDeliverEventArgs msg = (BasicDeliverEventArgs)result;
+    T deserialized = Deserialize<T>(msg.Body);
+    
+    handler(deserialized);
+    
+    // let RabbitMQ know that the message was processed.
+    // if handler() throws an exception the message will not be ACK'd and can be re-delivered to another consumer
+    _model.BasicAck(msg.DeliveryTag, false);
+  }
+}
+view raw
+rabbit_consumer.cs hosted with ? by GitHub
+
+An official WCF driver exists as well but, at the time we began using RabbitMQ, it needed some work before being production-ready. We’ve made some pretty major modifications before running RabbitMQ over WCF at Hudl.
+Wrapping It Up
+
+RabbitMQ and C# work well together. We’ve been using it now for three years in production and are still happy with the choice. It’s easy to get up and running with just the basic functionality but is also flexible if/when you want to use more complex routing scenarios. RabbitMQ is also very fast, we regularly push 1,500 messages/sec and Rabbit barely breaks a sweat. If you want to move some logic off of your web servers then it’s a great choice to do so in a durable and performant way.
+https://www.rabbitmq.com/uri-spec.html
+
+https://www.simplethread.com/using-rabbitmq-with-c-and-net/
+http://www.c-sharpcorner.com/article/difference-between-net-framework-and-net-core/
+. Cross-Platform needs
+
+Clearly, if your goal is to have an application (web/service) that should be able to run across platforms (Windows, Linux and MacOS), the best choice in the .NET ecosystem is to use .NET Core as its runtime (CoreCLR) and libraries are cross-platform. The other choice is to use the Mono Project.
+
+Both choices are open source, but .NET Core is directly and officially supported by Microsoft and will have a heavy investment moving forward.
+
+When using .NET Core across platforms, the best development experience exists on Windows with the Visual Studio IDE which supports many productivity features including project management, debugging, source control, refactoring, rich editing including Intellisense, testing and much more. But rich development is also supported using Visual Studio Code on Mac, Linux and Windows including intellisense and debugging. Even third party editors like Sublime, Emacs, VI and more work well and can get editor intellisense using the open source Omnisharp project.
+
+2. Microservices
+
+When you are building a microservices oriented system composed of multiple independent, dynamically scalable, stateful or stateless microservices, the great advantage that you have here is that you can use different technologies/frameworks/languages at a microservice level. That allows you to use the best approach and technology per micro areas in your system, so if you want to build very performant and scalable microservices, you should use .NET Core. Eventually, if you need to use any .NET Framework library that is not compatible with .NET Core, there’s no issue, you can build that microservice with the .NET Framework and in the future you might be able to substitute it with the .NET Core.
+
+The infrastructure platform you could use are many. Ideally, for large and complex microservice systems, you should use Azure Service Fabric. But for stateless microservices you can also use other products like Azure App Service or Azure Functions.
+
+Note that as of June 2016, not every technology within Azure supports the .NET Core, but .NET Core support in Azure will be increasing dramatically now that .NET Core is RTM released.
+
+New large monolithic applications
+
+If you are developing a large enterprise application that cannot be loosely coupled and composed by isolated components or services (like with a microservice architecture approach) chances are that as soon as you need to consume libraries that are compatible only with the .NET Framework, if you are using the .NET Core runtime it’ll be a stopper as those components/libraries that you need cannot be run on the CoreCLR runtime and with a monolithic approach it is difficult to isolate components/services with a single responsibility that could be running on .NET Core.
+
+Note that this doesn’t mean that with .NET Core you always have to use a microservices approach and cannot build traditional architecture models (like layered or N-Tier). You can perfectly do it. The issue here is with libraries’ compatibility and allowed references per project/assembly/service.
+
+A feasible approach here would be to use ASP.NET Core but running it on top of the .NET Framework and the traditional CLR, so you can consume any .NET library from the framework or third party. In the future you could eliminate those dependencies so it’ll be possible to run as a pure .NET Core application. But this refactoring task with a monolithic architecture won’t be as easy as if it had a loosely coupled architecture.
+http://www.codechannels.com/article/microsoft/when-should-i-not-use-net-core/
+
+
+1. Current .NET Framework applications in Production / Migrations
+
+In most cases, you still don’t need to migrate your current .NET applications like ASP.NET apps to run on .NET Core. Not just because the cost of the migration and code rewriting would be significant but also because as of today (2016) you’ll find that many of the third libraries that you are executing from .NET Framework code cannot be used from an app running on .NET Core.
+
+However, if you want to start taking advantage of the new capabilities provided by ASP.NET Core (see the value-props from ASP.NET Core explained earlier in this doc), you can still migrate to ASP.NET Core but running on the traditional CLR from the .NET Framework. That would allow you to reuse legacy third party .NET libraries not compatible with .NET Core while taking advantage of new web capabilities and approaches in ASP.NET Core.
+
+http://www.codechannels.com/article/microsoft/when-should-i-not-use-net-core/
+
+In summary, you still might need to use the .NET Framework in a large variety of cases, as explained below:
+
+    NET Core running on the .NET Framework/CLR. Remember, if you need to consume traditional/legacy libraries based on the .NET Framework, you can still use ASP.NET Core with its own benefits (MVC+WebAPI unification, self-hosting, cloud-ready environment-based config system and built-in dependency injection) but running it on top of the .NET Framework (traditional CLR). In this case, you will lose the intrinsic .NET Core and CoreCLR benefits (cross-platform and modular/lightweight framework) until you eliminate those dependencies with legacy libraries, but you could do that in the future.
+    NET Web Forms applications. As of June 2016, ASP.NET Web Forms is only supported/provided by the full .NET Framework, so you cannot use ASP.NET Core / .NET Core for this scenario.
+    Visual Basic support. As of June 2016, Visual Basic is not supported by .NET Core and ASP.NET Core, although it is in the future roadmap.
+    NET Web Pages applications. As of June 2016, ASP.NET Web Pages is only supported/provided by the full .NET Framework, so you cannot use ASP.NET Core / .NET Core for this scenario. Although Web Pages is in the future roadmap.
+    NET SignalR server/client implementation. As of June 2016, ASP.NET SignalR (server and client implementation) is only supported as RTM by the full .NET Framework, so you still cannot use ASP.NET Core / .NET Core RTM for this scenario in production, yet. Although, SignalR’s implementation is in the ASP.NET roadmap and in preview state and being currently developed at github.com/aspnet/SignalR-Server (Server side) and github.com/aspnet/SignalR-Client-Net (Client Library) and will be RTM released in the near future.
+    Desktop apps including Windows 7 and Windows 8. If you want to build Desktop applications that run on Windows 7 through Windows 10, you need to use the .NET Framework.
+        WPF (Windows Presentation Foundation) applications. WPF is only supported/provided by the full .NET Framework, so you cannot use .NET Core for this scenario.
+        Windows Forms applications. WinForms is only supported/provided by the full .NET Framework, so you cannot use .NET Core for this scenario.
+    WCF services implementation. Even when there’s a WCF-Client library to consume WCF services from .NET Core, as of June 2016, WCF services/server implementation is only supported/provided by using the full .NET Framework, so you cannot use .NET Core for this scenario. Microsoft is considering this scenario for the future roadmap, but not confirmed, though.
+    WF (Windows Workflow Foundation) workflows implementation. WF service implementation is only supported/provided by the full .NET Framework, so you cannot use .NET Core for this scenario.
+    Workflow Services. Workflow Services (WCF+WF in a single service) is only supported/provided by the full .NET Framework, so you cannot use .NET Core for this scenario.
+    WCF Data Services (formerly known as “ADO.NET Data Services”). WCF Data Services is only supported/provided by the full .NET Framework, so you cannot use .NET Core for this scenario.
+    Azure’s products that still don’t support .NET Core. As of June 2016, there’s a number of Azure products still not supported by .NET Core, like Service Fabric Stateful Reliable Services, Service Fabric Reliable Actors, and quite a few products where their client SDK requires the full .NET Framework. However, now that the .NET Core RTM has been released (June 2016), most of the products in Azure will provide compatibility with .NET Core. In regards Azure products remote consumption even when the client SDK might still be not available for .NET Core, you can always use the REST API that most Azure products provide from .NET Core, as well.
+    Need to use third party .NET libraries or NuGet packages not available for .NET Core – Use ASP.NET Core running on the .NET Framework for this scenario, or just the .NET Framework. Some of the third party Nuget packages might not be available on .NET Core yet.
+
+http://www.codechannels.com/article/microsoft/when-should-i-still-use-net-framework-4-x-instead-of-net-core/
+http://www.talkingdotnet.com/difference-between-net-core-and-net-framework/
+
+Difference
+
+.NET Core and the .NET Framework have (for the most part) a subset-superset relationship. .NET Core is named “Core” since it contains the core features from the .NET Framework, for both the runtime and framework libraries. For example, .NET Core and the .NET Framework share the GC, the JIT and types such as String and List.
+
+.NET Core was created so that .NET could be open source, cross platform and be used in more resource-constrained environments. 
+
+NET Core is the best candidate if you are embracing a microservices oriented system composed of multiple independent, dynamically scalable, stateful or stateless microservices. .NET Core is lightweight and its API surface can be minimized to the scope of the microservice. A microservices architecture also allows you to mix technologies across a service boundary, enabling a gradual embrace of .NET Core for new microservices that live in conjunction with other microservices or services developed with .NET Framework, Java, Ruby, or other monolithic technologies.
+
+Containers
+
+Containers are commonly used in conjunction with a microservices architecture, although they can also be used to containerize web apps or services which follow any architectural pattern. You will be able to use the .NET Framework for Windows containers, but the modularity and lightweight nature of .NET Core makes it perfect for containers. When creating and deploying a container, the size of its image is far smaller with .NET Core than with .NET Framework. Because it is cross-platform, you can deploy server apps to Linux Docker containers, for example.
+
+You can then host your Docker containers in your own Linux or Windows infrastructure, or use a cloud service such as Azure Container Service which can manage, orchestrate and scale your container-based application in the cloud.
+https://docs.microsoft.com/en-us/dotnet/standard/choosing-core-framework-server
+
+
+5. Need side by side of .NET versions per application level.
+
+If you want to be able to install applications with dependencies on different versions of frameworks in .NET, you need to use .NET Core which provides 100% side-by side as explained previously in this document.
+
+https://stackoverflow.com/questions/42939454/what-is-the-difference-between-net-core-and-net-standard-class-library-project
+For the impatient: TL;DR
+
+    .NET Standard solves the code sharing problem for .NET developers across all platforms by bringing all the APIs that you expect and love across the environments that you need: desktop applications, mobile apps & games, and cloud services:
+    .NET Standard is a set of APIs that all .NET platforms have to implement. This unifies the .NET platforms and prevents future fragmentation.
+    .NET Standard 2.0 will be implemented by .NET Framework, .NET Core, and Xamarin. For .NET Core, this will add many of the existing APIs that have been requested.
+    .NET Standard 2.0 includes a compatibility shim for .NET Framework binaries, significantly increasing the set of libraries that you can reference from your .NET Standard libraries.
+    .NET Standard will replace Portable Class Libraries (PCLs) as the tooling story for building multi-platform .NET libraries.
+
+
+TL;DR A .Net Core Class Library is built upon the .Net Standard. If you want to implement a library that is portable to the .Net Framework, .Net Core and Xamarin, choose a .Net Standard Library
+
+.Net Core will ultimately implement .Net Standard 2 (as will Xamarin and .Net Framework)
+
+.Net Core, Xamarin and .Net Framework can, therefore, be identified as flavours of .Net Standard
+
+To future-proof your applications for code sharing and reuse , you would rather implement .Net Standard libraries.
+
+Microsoft also recommends that you use .NET Standard instead of Portable Class Libraries.
+
+To quote MSDN as an authoritative source, .Net Standard is intended to be One Library to Rule Them All. As pictures are worth a thousand words, the following will make things very clear:
+
+1. Your current application scenario (fragmented)
+
+Like most of us, you are probably in the situation below: (.Net Framework, Xamarin and now .Net Core flavoured applications)
+
+enter image description here
+
+2. What the .Net Standard Library will enable for you (cross-framework compatibility)
+
+Implementing a .Net Standard Library allows code sharing across all these different flavours:
+
+One Library to Rule them All
+
+For the impatient: TL;DR
+
+    .NET Standard solves the code sharing problem for .NET developers across all platforms by bringing all the APIs that you expect and love across the environments that you need: desktop applications, mobile apps & games, and cloud services:
+    .NET Standard is a set of APIs that all .NET platforms have to implement. This unifies the .NET platforms and prevents future fragmentation.
+    .NET Standard 2.0 will be implemented by .NET Framework, .NET Core, and Xamarin. For .NET Core, this will add many of the existing APIs that have been requested.
+    .NET Standard 2.0 includes a compatibility shim for .NET Framework binaries, significantly increasing the set of libraries that you can reference from your .NET Standard libraries.
+    .NET Standard will replace Portable Class Libraries (PCLs) as the tooling story for building multi-platform .NET libraries.
+
+For a table to help understand what the highest version of .NET Standard that you can target, based on which .NET platforms you intend to run on, head over here.
+
+https://stackoverflow.com/questions/42939454/what-is-the-difference-between-net-core-and-net-standard-class-library-project
+
+
+
+
+Think of .NET Core as a subset of .NET Framework that makes sense to be cross-platform, redesigned in a much more granular fashion.
+
+While lots of code for libraries and console and ASP.NET apps will be compatible while compiling, some of it won't, and the core libraries dependencies will be very dissimilar for each target (for instance, system/mscorlib were split into dozens of smaller libraries).
+
+ GUI apps are out of scope for the foreseeable future as what Microsoft wants now is to offer cloud developers a nicer/smoother experience, that can compete with nodeJS and Ruby-on-Rails, and have some OS flexibility, although wider for development than for deployment.
+
+
+
+You should use .NET Core for your server application when:
+
+    You have cross-platform needs.
+    You are targeting microservices.
+    You are using Docker containers.
+    You need high performance and scalable systems.
+    You need side by side of .NET versions by application.
+
+You should use .NET Framework for your server application when:
+
+    Your application currently uses .NET Framework (recommendation is to extend instead of migrating)
+    You need to use third-party .NET libraries or NuGet packages not available for .NET Core.
+    You need to use .NET technologies that are not available for .NET Core.
+    You need to use a platform that doesn’t support .NET Core.
+
+
+The structure of .NET Core is comprised of two major components which add to and extend the capabilities of the .NET Framework as follows:
+
+    Runtime:
+
+Built on the same codebase as the .Net Framework CLR. Includes the same GC and JIT (RyuJIT) Does not include features like Application Domains or Code Access Security. The runtime is delivered on NuGet (Microsoft.CoreCLR package)
+
+    Base class libraries:
+
+Are the same code as the .Net Framework class libraries but do not contain dependencies so have a smaller footprint. Available on NuGet (System.* package)
+
+https://www.quora.com/What-is-the-difference-between-NET-Core-and-NET-Framework
+
+.NET has Multilanguage support. While java is based on java language only. According to Microsoft latest news .NET support around 40 languages including major market share COBOL, VB.NET, C#, Perl and many others.
+Since java is multiplatform so it’s set of framework classes is limited to what is available on all platforms. While .NET has set of all the classes available on Microsoft Platform
+
+.NET Core is a general purpose development platform maintained by Microsoft and the .NET community on GitHub. It is cross-platform, supporting Windows, macOS and Linux, and can be used in device, cloud, and embedded/IoT scenarios.
+
+Java is both a language and a framework, both tied together and given one name. .NET is a platform that has many languages that use it - C#, VB.NET, F# and many more. The difference is one of naming and semantics, no more. Java is to the JVM as C# is to .NET.
+
+https://benchmarksgame.alioth.debian.org/u64q/csharp.html
+
+binary-trees
+	
+source 	secs 	mem 	gz 	cpu 	cpu load
+C# .NET Core
+	7.08 	784,864 	851 	23.45 	82% 85% 83% 84%
+Java
+	11.26 	593,156 	835 	39.02 	85% 88% 90% 88% 
+
+
+http://blog.blackducksoftware.com/key-differences-java-net-core-part-1
+
+There is no difference. The compiler itself doesn't even understand the concept of Net Framework vs. Net Core. That is all handled at the MSBuild / NuGet level. Once it gets down to the compiler layer it's just a set of references that we treat like any other.
+What kind of differences are you concerned with here? Are you referring to differences when MSBuild runs on CoreCLR s. desktop?
+Just looking at Windows first, I would want to know if MSBuild changes any of the byte-code from what was expected in .NET Framework. I seriously doubt that there is anything in MSBuild that would do that, but I'm not sure.
+It doesn't. They don't directly control the emitted byte code, instead deferring to the compiler.
+
+https://stackify.com/15-lessons-learned-while-converting-from-asp-net-to-net-core/
+
+
+IIS is dead, well sort of
+
+As part of .NET Core, Microsoft (and the community) has created a whole new web server called Kestrel. The goal behind it has been to make it as lean, mean, and fast as possible. IIS is awesome but comes with a very dated pipeline model and carries a lot of bloat and weight with it. In some benchmarks, I have seen Kestrel handle up to 20x more requests per second. Yowzers!
+
+Kestrel is essentially part of .NET Core which makes deploying your web app as easy as deploying any console app. As matter of fact, every app in .NET Core is essentially a console app. When your ASP.NET Core app starts up, it activates the Kestrel web server, sets up the HTTP bindings, and handles everything. This is similar to how self hosted Web Api projects worked with Owin.
+
+IIS isn’t actually dead. You can use IIS as a reverse proxy sitting in front of Kestrel to take advantage of some of it’s features that Kestrel does not have. Things like virtual hosts, logging, security, etc. Microsoft still recommends using IIS to sit in front of your ASP.NET Core apps.
+
+Check out this blog post about deploying to IIS: Publishing and Running ASP.NET Core Applications with IIS
+
+If you have ever made a self hosted web app in a Windows service or console app, it all works much differently now. You simply use Kestrel. All the self hosted packages for WebApi, SignalR and others are no longer needed. Every web app is basically self hosted now.
+https://stackify.com/15-lessons-learned-while-converting-from-asp-net-to-net-core/
+
+HttpModules and HttpHandlers are replaced by new “middleware”
+
+Middleware has been designed to replace modules and handlers. It is similar to how Owin and other languages handle this sort of functionality. They are very easy to work with. Check out the ASP.NET docs to learn more. The good (and bad) news is you can’t configure them in a config file either. They are all set in code.
+
+
+Log4net doesn’t (didn’t) work and neither do countless other dependencies, unless you target .NET 4.5!
+
+Log4net is a pretty fundamental library used by countless developers. It has not been ported to core, yet. NLog and Serilog work and you will have to switch logging providers. Before converting anything to core, you need to review all of your referenced dll dependencies to ensure they will work with core. But as long as you are targeting Windows, you can target .NET 4.5.1 or newer and use all your current dependencies! If you have to go cross platform… watch out for dependency problems.
+
+DataSet and DataTable doesn’t exist
+
+People still use these? Actually, some do. We have used DataTables for sending a table of data to a SQL stored procedure as an input parameter. Works like a charm.
+
+Web API is Gone/Part of MVC Now
+
+With .NET Core Microsoft and the community decided to merge Web API and MVC together. They have always been very similar to work with and either could be used for API type applications. So in a lot of ways, merging them made sense. Check out our detailed article on this subject about Bye Bye ASP.NET Core Web API.
+
+BONUS – Database access
+
+Low level access via SqlConnection and SqlCommand works the same. My favorite two ORMs, Dapper and Entity Framework, both work with dotnet core. Entity Framework Core has quite a few differences. Learn more here: https://docs.efproject.net/en/latest/efcore-vs-ef6/features.html
+
+https://www.hanselman.com/blog/RFCServersideImageAndGraphicsProcessingWithNETCoreAndASPNET5.aspx
+https://stackify.com/15-lessons-learned-while-converting-from-asp-net-to-net-core/
+
+https://rehansaeed.com/nginx-asp-net-core-depth/
+
+The main reason, I’ve been taking a serious look at NGINX is hard cash. Running Linux servers in the cloud can costs around half the price of a Windows server. Also, you can nab yourself some pretty big performance wins by using the modules I’ve listed.
+
+There are some interesting overlaps between ASP.NET Core and NGINX. Both can be used to serve static files, HTTP headers, GZIP files etc. I think ASP.NET Core is slowly going to take on more of the role that traditionally was the preserve of the web server.
+
+The cool thing is that because ASP.NET Core is just C#, we’ll have a lot of power to configure things using code. NGINX lets you do more advanced configuration using the Lua language and soon even in JavaScript but putting that logic in the app where it belongs and where you can do powerful things makes sense to me.
+
+Really nice article with in-depth details about nginx configuration. Gives much better configuration than default files found in asp.net core tutorials.
+
+What would you think about adding pagespeed module in the pipeline, would it be a good idea/worth it? I know some of the features are redundant but I wonder if it could get an even further performance boost. What do you think?
+Ideally you should build yous site so it is optimized in the first place, so you shouldn’t need to run a tool like this which adds it’s own performance penalty. You can see what this tool is doing and replicate that in your app. That said, I’m not very familiar with this tool. Best thing to do is try it and see when it comes to performance.
+
+Somewhere before the end of the article the author claims this:
+“First and foremost, if you want to have multiple applications running on a single server that all share port 80 and port 443 you can’t run Kestrel directly. Kestrel doesn’t support host header routing which is required to allow multiple port 80 bindings on a single IP address. Without IIS (or http.sys actually) you currently can’t do this using Kestrel alone (and I think this is not planned either).”
+
+I am sorry if it is not allowed to quote other authors in your posts. If so it is OK with me to delete it.
+
+The Kestrel web server does not support SNI which lets you run multiple sites on the same port (usually port 80 and/or 443 on a production site). If you want SNI, use the WebListener (Now renamed HttpSysServer) web server instead.
+
+That will do the trick I hope.
+By the way, do you have any clues about performance comparison between IIS and Linux+Nginx?
+There are a lot talks on the net that can be found but it will be great to have your personal opinion.
+NGINX is faster than IIS.
+
+https://www.theregister.co.uk/2015/11/20/microsoft_net_core_development_platform_fork/
+dotnetdemo*
+dotnetdemo.deps*
+dotnetdemo.dll
+dotnetdemo.pdb
+
+dotnet compile -o output --native
+csc.exe -noconfig @"output/dotnet-compile.csc.rsp"
+
+dotnet-compile-native "output/dotnetdemo.dll" "output/native"
+converting output/dotnetdemo.dll to native 
+
+
+ihttprequestfeature - iis | weblistener | Kestrel
+ihttpresponsefeature - iis | weblistener | kestrel
+ihttpupgradefeature - no | limits | kestrel
+
+https://www.google.co.in/imgres?imgurl=https%3A%2F%2Fkeyoti.com%2Fblog%2Fwp-content%2Fuploads%2F2015%2F04%2Ftext4778-7-5.png&imgrefurl=https%3A%2F%2Fkeyoti.com%2Fblog%2Fasp-net-v5web-apivnextowin-a-beginners-primer-part-1%2F&docid=-8PjasQGurFnHM&tbnid=RT4x2oDwJETRUM%3A&vet=10ahUKEwiMot-w2KXVAhXKp48KHagYAw0QMwhFKBYwFg..i&w=594&h=578&bih=659&biw=1366&q=kestrel%20web%20server&ved=0ahUKEwiMot-w2KXVAhXKp48KHagYAw0QMwhFKBYwFg&iact=mrc&uact=8
+
+
+Server - OWIN
+Katana - Microsoft implementation of OWIN. It allows developers to create their own web-servers
+
+Kestrel - Linus based implementation of OWIN
+
+Hosts
+IIS - Helios - Microsoft hosting running inside IIS and OWIN compliant. Does not use system.web
+
+Self Host - The OWIN server layer (eg-katana) can be self hosted
+
+Open Web Interface for .Net (OWIN) an abstraction netween .net webservers and web applications, OWIN decouples the web application from the server which makes OWIN ideal for self hosting a web application in your own process outside of IIS
+
+
+https://docs.microsoft.com/en-us/aspnet/web-api/overview/hosting-aspnet-web-api/use-owin-to-self-host-web-api
+From the Tools menu, click Library Package Manager, then click Package Manager Console. In the Package Manager Console window, enter the following command:
+
+Install-Package Microsoft.AspNet.WebApi.OwinSelfHost
+
+This will install the WebAPI OWIN selfhost package and all the required OWIN packages.
+
+Configure Web API for Self-Host
+
+In Solution Explorer, right click the project and select Add / Class to add a new class. Name the class Startup.
+
+using Owin; 
+using System.Web.Http; 
+
+namespace OwinSelfhostSample 
+{ 
+    public class Startup 
+    { 
+        // This code configures Web API. The Startup class is specified as a type
+        // parameter in the WebApp.Start method.
+        public void Configuration(IAppBuilder appBuilder) 
+        { 
+            // Configure Web API for self-host. 
+            HttpConfiguration config = new HttpConfiguration(); 
+            config.Routes.MapHttpRoute( 
+                name: "DefaultApi", 
+                routeTemplate: "api/{controller}/{id}", 
+                defaults: new { id = RouteParameter.Optional } 
+            ); 
+
+            appBuilder.UseWebApi(config); 
+        } 
+    } 
+}
+
+Add a Web API Controller
+
+Next, add a Web API controller class. In Solution Explorer, right click the project and select Add / Class to add a new class. Name the class ValuesController.
+
+Replace all of the boilerplate code in this file with the following:
+
+C#
+
+using System.Collections.Generic;
+using System.Web.Http;
+
+namespace OwinSelfhostSample 
+{ 
+    public class ValuesController : ApiController 
+    { 
+        // GET api/values 
+        public IEnumerable<string> Get() 
+        { 
+            return new string[] { "value1", "value2" }; 
+        } 
+
+        // GET api/values/5 
+        public string Get(int id) 
+        { 
+            return "value"; 
+        } 
+
+        // POST api/values 
+        public void Post([FromBody]string value) 
+        { 
+        } 
+
+        // PUT api/values/5 
+        public void Put(int id, [FromBody]string value) 
+        { 
+        } 
+
+        // DELETE api/values/5 
+        public void Delete(int id) 
+        { 
+        } 
+    } 
+}
+
+Start the OWIN Host and Make a Request Using HttpClient
+
+Replace all of the boilerplate code in the Program.cs file with the following:
+C#
+
+using Microsoft.Owin.Hosting;
+using System;
+using System.Net.Http;
+
+namespace OwinSelfhostSample 
+{ 
+    public class Program 
+    { 
+        static void Main() 
+        { 
+            string baseAddress = "http://localhost:9000/"; 
+
+            // Start OWIN host 
+            using (WebApp.Start<Startup>(url: baseAddress)) 
+            { 
+                // Create HttpCient and make a request to api/values 
+                HttpClient client = new HttpClient(); 
+
+                var response = client.GetAsync(baseAddress + "api/values").Result; 
+
+                Console.WriteLine(response); 
+                Console.WriteLine(response.Content.ReadAsStringAsync().Result); 
+                Console.ReadLine(); 
+            } 
+        } 
+    } 
+ }
+
+OWIN defines a standard interface between .NET web servers and web applications. The goal of the OWIN interface is to decouple server and application, encourage the development of simple modules for .NET web development, and, by being an open standard, stimulate the open source ecosystem of .NET web development tools.
+
+These projects are known to be OWIN-compatible. If you'd like your project listed here, please post on the discussion list or chat room.
+Servers and Hosts
+
+    Katana
+    Nowin
+    Suave
+
+Frameworks
+
+    Jasper
+    Nancy
+    SignalR
+    WebApi
+    WebSharper
+    DuoVia.Http
+    Simplify.Web
+
+Implementations
+
+    Katana
+    Freya
+    ASP.NET vNext
+
+Out of date or deprecated
+
+    Dyfrig
+    Fix
+    Fracture
+    FubuMVC
+    Simple.Web
+    ACSP.NET
+
+https://docs.microsoft.com/en-us/dotnet/core/porting/index
+https://docs.microsoft.com/en-us/azure/service-fabric/service-fabric-overview-microservices
+https://channel9.msdn.com/Events/ASPNET-Events/ASPNET-Fall-Sessions/ASPNET-5-Kestrel
+
+should i use Freya?
+Like to write clean functional code
+using .net framework or .net Core
+Dont want to have to read the HTTP RFCs
+Want a powerful framework that understands HTTP
+Want to benefit from the power and speed of kestrel
+Want a framework that optimizes itself
+
+
+ASP.Net Core
+Helios webserver (in-process in IIS, Deprecated)
+relied on system.web (full clr)
+
+Kestrel (libuv-based, cross-platform)
+production https server for asp.net core
+not fully-featured
+run it behind a more fully-featured web server
+(NGINX, IIS)
+Libuv (used by nodejs, very efficient)
+IIS-> HttpPlatformhandler IIS module -> Kestrel
+
+
+Agenda
+Overview
+.Net core
+samples
+ASP.NET core
+Samples
+
+The .Net Family
+.Net | .Net Core | Xamarin | .Net Native | Mono | Unity
+
+.Net Core
+Single Application Model
+.Console Apps
+
+Additional application models on top
+. ASP.Net Core
+.UWP
+
+https://www.slideshare.net/djohnnieke/introduction-to-net-core
+
+
+
+Deprecate Helios ? It was its own host which means another set of logic
+it relied on system.web & full CLR to bootstrap DNX & CoreCLR
+do we really need 3 web servers?
+
+
+
+The single responsibility principle is a computer programming principle that states that every module or class should have responsibility over a single part of the functionality provided by the software, and that responsibility should be entirely encapsulated by the class.
