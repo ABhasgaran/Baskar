@@ -1,0 +1,242 @@
+What is dotnet core?
+
+.NET Core is a open source, cross-platform and modular .NET platform for creating web applications, microservices, libraries, console applications and all together It is a whole new framework. .NET can also be used in device, cloud, and embedded/IoT scenarios.
+
+You can develop, build and run an .NET Core application on a Mac, Linux or Windows machine.
+which earlier supported on Mono for asp.net application
+This enables a faster development cycle and continuous code improvement.
+
+[ we need to use package manager console and Nuget package manager to install and configure frameworks and libraries.]
+[so Modular is the process of subdividing a program into separate sub-programs, rather than as a single, monolithic design.]
+[Microsoft have made available can be built using the free Visual Studio Community edition.]
+[Modular architecture, The application is divided into modules. Each module contains all the stuff for itself to run including Controllers, Services, Views and event static files. It is very easy to modify, add or remove modules.]
+[Modules are abstractions to make software easier to write and to maintain, and ane of the most important pattern in application that faces users is called Model-View-Controller (MVC).]
+[which interact with the main application and other modules to perform some set of tasks.]
+
+when compared with .NET Framework, the main limitations is working code across platforms.
+
+You can also use Visual Studio Code on macOS, Linux and Windows which fully support .NET Core, including IntelliSense and debugging. 
+there are also third-party editors like Sublime, Emacs, VI for .NET Core and these editor have IntelliSense. 
+
+Command-line tools: All product scenarios can be exercised at the command-line.
+
+New .Net CLR
+
+Core CLR is now open source
+Core CLR is the .NET execution engine in .NET Core
+Similar to existing .net framework it perform functions like garbage collection and compilation to machine code. 
+.NET Core Runtime repo (called "CoreCLR") contains the runtime implementation for .NET Core.
+A .NET runtime which provides a type system, assembly loading, a garbage collector, native interop, and other basic services.
+A set of framework libraries which provide primitive data types, app composition types, and fundamental utilities.
+RyuJIT is open source. JIT32 is not open source.
+The RyuJIT JIT compiler will be used for all platform combinations for .NET Core 2.0 
+JIT32 will be removed from the product. For .NET Core 1.x, RyuJIT is used for x64 and JIT32 is used for x86 chip support
+
+A set of SDK tools and language compilers
+.NET Compiler Platform, also known as "Roslyn", it is a set of open-source compilers and code analysis APIs for C# and Visual Basic .NET languages
+A set of SDK tools and language compilers that enable the base developer experience, available in the .NET Core SDK.
+
+	
+Roslyn compiles C#/VB text to IL. JIT (and RyuJIT) compiles IL to machine code at runtime. 
+
+csc.exe is Roslyn starting from VS 2015. Roslyn can also be used as an API (Microsoft.CodeAnalysis NuGet package)
+Roslyn is a compiler that takes your source code and generates IL bytecode. RyuJIT takes said bytecode, at runtime, and generates native code. You can embed Roslyn into an app to compile source code on the fly, but RyuJIT is strictly for the runtime and cannot be accessed as far as I know.
+
+	
+
+Roslyn is the compiler that compile your code (C# or VB) to IL.
+
+RyuJIT is a Just In Time compiler that compile your IL to a native code.
+
+Both of them are now open source.
+
+Roslyn
+
+RyuJIT, Tutorial
+
+Roslyn API is what you need if you want to play with syntax tree, compilation and semantic model.
+
+RyuJIT doesn't have have a public API.
+
+ Ryu in Japanese means dragon so RyuJIT is the dragon JIT
+
+What is DotNet App Host
+
+The 'dotnet' app host, which is used to launch .NET Core apps. It selects the runtime and hosts the runtime.
+    
+
+Benefits and differences
+What really advantage about .NET Core is, it is shipped by NuGet package manager
+Microsoft has packaged their own lightweight web server called Kestrel with ASP.NET.
+Kestrel enables the developer to run their site on OSX. 
+.NET Core is the best candidate if you planned for microservices, benefits are system composed of multiple independent module, can scale dynamically.
+Microservices alternatives based on Docker also fit any kind of microservices approach.
+main advantage of using .NET Core is that it’s portable, Docker-compatible 
+
+.NET Core relies on the Nuget package manager, bundles components into nupkg files 
+Roslyn is entirely open-source
+CoreRT is a runtime. Roslyn is the C# and VB compiler, compiling source code to IL.
+These compilers emit Common Intermediate Language (CIL) code.
+CIL has to be compiled into binary code that the target computer architecture
+CoreRT is an open-source implementation of this technology.
+LLILC is a CIL compiler based on the portable LLVM compiler framework. It can be used to build JIT (current) and AOT (future) compilers.
+CoreRT, a .NET Core runtime optimized for AOT (ahead of time compilation) scenarios
+.NET Core runtime, called CoreCLR
+NET Core foundational libraries, called CoreFX
+It includes classes for collections, file systems, console, XML, async 
+
+
+Containers are commonly used in microservices architecture, they can also be used to containerize web apps or services which follow any architectural pattern. 
+You can then host Docker containers in Linux or Windows infrastructure, or AWS or Azure cloud Container Service which can manage, orchestrate and scale container-based application in the cloud.
+
+when you have cross-platform needs.
+targeting microservices.
+using Docker containers.
+performance and scalable systems.
+side by side of .NET versions by application.
+
+[meaning you can get a version of the .Net Core Framework for your specific application]. 
+[In this way, other application versions can't change your application’s behavior].
+[The NuGet Gallery is the central package repository used by all package authors and consumers].
+
+Packages are located in C:\Users\[user]\.nuget\packages\
+
+The .NET Core is comprised of two major components which extend the capabilities of the .NET Framework one is Runtime and other is Base class libraries
+
+
+
+This release includes the .NET Core runtime, libraries and tools and the ASP.NET Core libraries.
+
+
+code examples
+Building a Hello World Sample Application
+
+
+Create an empty directory somewhere ...
+
+mkdir HelloWorld
+cd HelloWorld
+
+Then use the built in scaffolding technology to create a Hello World sample
+
+dotnet new console -o 
+
+This command creates two files:
+
+    HelloWorld.csproj describes the project dependencies, settings, and Target Framework
+    Program.cs which defines the source code for the main entry point and the console emitting of "Hello World".
+
+If the dotnet new command fails, make sure you have installed .NET Core properly. Open the Program.cs file in your favorite editor to inspect it:
+
+namespace ConsoleApplication
+{
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            Console.WriteLine("Hello World!");
+        }
+    }
+}
+
+To restore the project dependencies and the .NET runtime, execute
+
+dotnet restore
+
+To compile the application and execute it, enter
+
+dotnet run
+
+This last command prints "Hello World" to the console.
+======================================================================================================================================================================
+ASP.NET Core is a new open-source and cross-platform framework for building modern cloud-based Internet-connected applications, such as web apps, IoT apps and mobile backends. It was architected to provide an optimized development framework for apps that are deployed to the cloud or run on-premises.
+
+ASP.NET Core includes MVC and Web API and they all share one version. They are all part of ASP.NET Core 1.0.
+
+ASP.NET Core is versioned as 1.0 as it’s a near complete rewrite of ASP.NET with many new features and capabilities. It’s clearly a different product than ASP.NET 4.6.
+
+ASP.NET Core. ... It is a modular framework that runs on both the full .NET Framework, on Windows, and the cross-platform .NET Core. The framework is a complete rewrite that unites the previously separate ASP.NET MVC and Web API into a single programming model.
+
+ASP.NET Core is not based on System.Web.dll. It is based on a set of granular and well-factored NuGet packages. This allows you to optimize your app to include just the NuGet packages you need. The benefits of a smaller app surface area include tighter security, reduced servicing, improved performance, and decreased costs in a pay for what you use model.
+
+A unified story for building web UI and web APIs.
+Integration of modern client-side frameworks and development workflows.
+A cloud-ready environment-based configuration system.
+Built-in dependency injection.
+A light-weight and modular HTTP request pipeline.
+Ability to host on IIS or self-host in your own process.
+Built on .NET Core, which supports true side-by-side app versioning.
+Ships entirely as NuGet packages.
+New tooling that simplifies modern web development.
+Build and run cross-platform ASP.NET Core apps on Windows, Mac, and Linux.
+Open-source and community-focused.
+
+You can use either xUnit or MSTest out of the box. Both are perfectly suitable for unit testing your library on .NET Core. How you set up your solution with test projects will depend on the structure of your solution. The following example assumes that the test and source directories live in the same top-level directory.
+
+Unit.net is a free, open source, community-focused unit testing tool for the .NET Framework. 
+Desktop CLR (traditional applications, including ASP.NET)
+.NET Core (including ASP.NET Core)
+Universal Windows Applications (Windows 10, Windows Phone 10)
+Devices (UWP, Windows 8.1, Windows Phone, Xamarin Android and Xamarin iOS)
+
+What's .NET Standard?
+
+.NET Standard isn't a runtime. It's not something you can install. It's not an "instance of .NET."  .NET Standard is an interface - a versioned list of APIs that you can call. Each newer version of .NET Standard adds more APIs but leaves older platforms/operating systems behind. 
+
+======================================================================================================================================================================
+
+Universal Windows Platform (UWP) is a platform-homogeneous application architecture created by Microsoft and first introduced in Windows 10. The purpose of this software platform is to help develop universal apps that run on both Windows 10 and Windows 10 Mobile without the need to be re-written for each.
+
+A Universal Windows Platform (UWP) app can run on any Windows-based device, from your phone to your tablet or PC.
+
+UWP is a part of Windows 10 and Windows 10 Mobile. UWP apps do not run on earlier Windows versions.
+
+The Universal Windows Platform (UWP) is the app platform for Windows 10. You can develop apps for UWP with just one API set, one app package, and one store to reach all Windows 10 devices – PC, tablet, phone, Xbox, HoloLens, Surface Hub and more. It’s easier to support a number of screen sizes, and also a variety of interaction models, whether it be touch, mouse and keyboard, a game controller, or a pen. At the core of UWP apps is the idea that users want their experiences to be mobile across ALL their devices, and they want to use whatever device is most convenient or productive for the task at hand.
+======================================================================================================================================================================
+For Node.js we’ll be using restify. Restify is framework providing both server and client components. Since we are going to create a server, we only need the server component. Don't forget to execute npm install restify. You can simply create a new restify server by using this code:
+
+const restify = require(‘restify’);
+const server = restify.createServer();
+JavaScript
+Copy
+
+That's it. Restify now provides us a middleware based pipeline (for you .NET developers out there: like OWIN) where we can add functionality we want to execute when a request happens. But watch out! Since it is a pipeline order matters. Your middleware will be executed in the same order as you define it. 
+======================================================================================================================================================================
+The server setup with ASP.NET Core 1.0 is pretty straight forward. There are several methods to create a project. If you want to start with a template, you can install Yeoman and the generator-aspnet. Second you use yo aspnet, select Web API project and yep, that’s it. The generator generates a Web API template which uses ASP.NET MVC 6. It already contains everything to parse query strings and JSON bodies.
+
+Basically it creates a host with a Startup.cs file, you are familiar with from ASP.NET MVC 5 projects. In there, you find a middleware based pipeline just as in Node.js. If you have used ASP.NET MVC 5 you already know this pipeline concept from OWIN.
+======================================================================================================================================================================
+
+Dependency injection (DI) is a technique for achieving loose coupling between objects and their collaborators, or dependencies. Rather than directly instantiating collaborators, or using static references, the objects a class needs in order to perform its actions are provided to the class in some fashion. Most often, classes will declare their dependencies via their constructor, allowing them to follow the Explicit Dependencies Principle. This approach is known as "constructor injection".
+
+ASP.NET Core includes a simple built-in container (represented by the IServiceProvider interface) that supports constructor injection by default, and ASP.NET makes certain services available through DI. ASP.NET's container refers to the types it manages as services. Throughout the rest of this article, services will refer to types that are managed by ASP.NET Core's IoC container. You configure the built-in container's services in the ConfigureServices method in your application's Startup class.
+
+using DependencyInjectionSample.Interfaces;
+
+namespace DependencyInjectionSample.Models
+{
+    public class CharacterRepository : ICharacterRepository
+    {
+        private readonly ApplicationDbContext _dbContext;
+
+        public CharacterRepository(ApplicationDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
+        public IEnumerable<Character> ListAll()
+        {
+            return _dbContext.Characters.AsEnumerable();
+        }
+
+        public void Add(Character character)
+        {
+            _dbContext.Characters.Add(character);
+            _dbContext.SaveChanges();
+        }
+    }
+}
+
+Note that CharacterRepository requests an ApplicationDbContext in its constructor. It is not unusual for dependency injection to be used in a chained fashion like this, with each requested dependency in turn requesting its own dependencies. The container is responsible for resolving all of the dependencies in the graph and returning the fully resolved service.
+
+
