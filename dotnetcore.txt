@@ -1,0 +1,1591 @@
+https://carlos.mendible.com/2016/11/06/step-by-step-expose-asp-net-core-over-https-with-docker/
+
+This week I decided to modify the sample of my previous post: Step by step: Scale ASP.NET Core with Docker Swarm so you can add TLS to your ASP.NET Core applications and Dockerize it.
+
+Let’s see how I changed the application in order to make it work:
+1. Add HTTPS support for Kestrel
+I added the following line to the dependencies in the project.json file
+
+1
+
+	
+
+    "Microsoft.AspNetCore.Server.Kestrel.Https": "1.0.1",
+
+2. Configure Kestrel to use HTTPS
+In the Main method I configured Kestrel to use HTTPS. Don’t worry about the cert.pfx certificate file because it will be created inside the docker container.
+
+Note that in line 8 I also configured the application to use port 443.
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+
+	
+
+    public static void Main(string[] args)
+    {
+        var host = new WebHostBuilder()
+            .UseKestrel((o) => 
+            {
+                o.UseHttps(new X509Certificate2(@"cert.pfx", Configuration["certPassword"]));
+            })
+            .UseUrls("https://*:443")
+            .UseContentRoot(Directory.GetCurrentDirectory())
+            .UseStartup<Startup>()
+            .Build();
+ 
+        host.Run();
+    }
+
+Now It’s time to show you how to Dockerize the application:
+1. Create a dockerfile
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+
+	
+
+# We use the microsoft/dotnet image as a starting point.
+FROM microsoft/dotnet 
+ 
+# Install git
+RUN apt-get install git -y
+ 
+# Clone the source code
+RUN git clone -b ssl https://github.com/cmendible/aspnet-core-helloworld.git
+ 
+# Set our working folder
+WORKDIR aspnet-core-helloworld/src/dotnetstarter
+ 
+# Restore nuget packages
+RUN dotnet restore
+ 
+# Build the application using dotnet!!!
+RUN dotnet build
+ 
+# Set password for the certificate as 1234
+# I'm using Environment Variable here to simplify the .NET Core sample.
+ENV certPassword 1234
+ 
+# Use opnssl to generate a self signed certificate cert.pfx with password $env:certPassword
+RUN openssl genrsa -des3 -passout pass:${certPassword} -out server.key 2048
+RUN openssl rsa -passin pass:${certPassword} -in server.key -out server.key
+RUN openssl req -sha256 -new -key server.key -out server.csr -subj '/CN=localhost'
+RUN openssl x509 -req -sha256 -days 365 -in server.csr -signkey server.key -out server.crt
+RUN openssl pkcs12 -export -out cert.pfx -inkey server.key -in server.crt -certfile server.crt -passout pass:${certPassword}
+ 
+# Expose port 443 for the application.
+EXPOSE 443
+ 
+# Start the application using dotnet!!!
+ENTRYPOINT dotnet run
+
+2. Create a Docker image
+With the dockerfile in place run the following command:
+
+1
+
+	
+
+sudo docker build -t httpssample .
+
+Now you have an image named httpssample with all the dependencies and code needed to run the application.
+3. Test the Docker image
+To test the Docker image run the following command:
+
+1
+
+	
+
+sudo docker run -it -p 443:443 httpssample
+
+Browse to https://localhost Your browser will warn about the certificate because it’s self signed.
+4. Run the Docker image as a daemon process
+Now that you know that everything is working as expected use the following command to run the Docker image as a daemon process:
+
+1
+
+	
+
+docker run -t -d -p 443:443 httpssample
+
+You can get a copy of the docker file here: https://github.com/cmendible/dotnetcore.samples/tree/master/docker.helloworld.https
+
+
+
+https://carlos.mendible.com/2016/10/30/step-by-step-scale-asp-net-core-with-docker-swarm/
+A few weeks ago I posted Step by step: ASP.NET Core on Docker were I showed how to build and run a Docker image with an ASP.NET Core application.
+
+Today I bring you: Step by step: Scale ASP.NET Core with Docker Swarm so you can scale out or in the same application.
+
+Assuming you have Docker 1.12 or later installed and running, follow this steps:
+1. Create a dockerfile
+On your Docker box create a dockerfile with the following contents:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+
+	
+
+    # We use the microsoft/dotnet image as a starting point.
+    FROM microsoft/dotnet
+ 
+    # Install git
+    RUN apt-get install git -y
+ 
+    # Create a folder to clone our source code 
+    RUN mkdir repositories
+ 
+    # Set our working folder
+    WORKDIR repositories
+ 
+    # Clone the source code
+    RUN git clone https://github.com/cmendible/aspnet-core-helloworld.git
+ 
+    # Set our working folder
+    WORKDIR aspnet-core-helloworld/src/dotnetstarter
+ 
+    # Expose port 5000 for the application.    
+    EXPOSE 5000
+ 
+    # Restore nuget packages
+    RUN dotnet restore
+ 
+    # Start the application using dotnet!!!
+    ENTRYPOINT dotnet run
+
+2. Create a Docker image
+With the dockerfile in place run the following command:
+
+1
+
+	
+
+sudo docker build -t hello_world .
+
+Now you have an image named hello_world with all the dependencies and code needed to run the sample.
+3. Initialize a Swarm
+Initialize Docker Swarm.
+
+1
+
+	
+
+   docker swarm init
+
+4. Create a Docker Service
+Now that you have setup everything use the following command to create a service named hello_service based on the hello_world image and start it:
+
+1
+
+	
+
+   docker service create --name hello_service --publish 5000:5000 hello_world
+
+Wait a few seconds and navigate to http://localhost:5000 and you should be able to reach the web application.
+
+If you want to learn more about Docker services, start here: Service Create/
+5. Scale up your application
+Let’s scale your service up to 3 instances with the following command:
+
+1
+
+	
+
+   docker service scale hello_service=3
+
+If you want to see how many replicas your service is running issue the following command:
+
+1
+
+	
+
+   docker service ls
+
+Note that it takes some seconds before all new replicas start.
+6. Scale down your application
+Let’s scale your service down to 1 instance with the following command:
+
+1
+
+	
+
+   docker service scale hello_service=1
+
+7. Optional: Remove the service
+I f you are don’t want the service anymore, remove it from the Swarm with the following command:
+
+1
+
+	
+
+   docker service rm hello_service
+
+You can get a copy of the docker file here: https://github.com/cmendible/dotnetcore.samples/tree/master/docker.helloworld
+
+
+
+https://carlos.mendible.com/2017/04/10/step-by-step-couchbase-with-net-core/
+
+This week I started to read an understand how Couchbase works and that’s the reason I decided to write: Step by step: Couchbase with .Net Core
+
+Tip: I’ll be using Docker to install and run Couchbase
+
+Now let’s start:
+1. Create a folder for your new project
+Open a command prompt an run:
+
+mkdir couchbase.console
+cd couchbase.console
+
+2. Create a console project
+
+dotnet new console
+
+3. Add the Couchbase nuget package
+
+Add the Couchbase nuget package to your project:
+
+dotnet add package CouchbaseNetClient
+dotnet restore
+
+4. Replace the contents of Program.cs
+
+Replace the contents of the Program.cs file with the following code:
+
+namespace couchbase.console
+{
+    using System;
+    using Couchbase;
+ 
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Connect to cluster. Defaults to localhost
+            using (var cluster = new Cluster())
+            {
+                // Open the beer sample bucket
+                using (var bucket = cluster.OpenBucket("beer-sample"))
+                {
+                    // Create a new beer document
+                    var document = new Document<dynamic>
+                    {
+                        Id = "Polar Ice",
+                        Content = new
+                        {
+                            name = "Polar Ice",
+                            brewery_id = "Polar"
+                        }
+                    };
+ 
+                    // Insert the beer document
+                    var result = bucket.Insert(document);
+                    if (result.Success)
+                    {
+                        Console.WriteLine("Inserted document '{0}'", document.Id);
+                    }
+ 
+                    // Query the beer sample bucket and find the beer we just added.
+                    using (var queryResult = bucket.Query<dynamic>("SELECT name FROM `beer-sample` WHERE brewery_id =\"Polar\""))
+                    {
+                        foreach (var row in queryResult.Rows)
+                        {
+                            Console.WriteLine(row);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+5. Setup Couchbase with Docker
+
+Run the following commands:
+
+docker pull couchbase/server
+docker run -d --name db -p 8091-8094:8091-8094 -p 11210:11210 couchbase
+
+Browse to: http://localhost:8091 and setup Couchbase.
+
+Be sure to add the Beer Sample bucket and check the documentation here: https://hub.docker.com/r/couchbase/server/
+6. Run the program
+Run the program and enjoy!
+
+dotnet run
+
+Get the code here: https://github.com/cmendible/dotnetcore.samples/tree/master/couchbase.console
+
+Hope it helps!
+
+
+
+https://kafka.apache.org/documentation/
+
+https://www.techbash.com/Submissions?category=2
+
+https://www.techbash.com/Submissions/Submission/445
+https://www.techbash.com/Submissions/Submission/415
+
+https://www.techbash.com/Submissions/Submission/550
+
+https://www.techbash.com/Submissions/Submission/332
+
+https://www.techbash.com/Submissions/Submission/334
+
+http://weblogs.com.pk/khurram/archive/tags/Docker/default.aspx
+
+http://blog.nethouse.se/2015/10/19/introducing-microphone-microservices-with-service-discovery-for-net/
+
+TLDR; links
+
+Microphone
+Nancy
+Consul.io
+
+When I started reading about microservices a few years ago, I had a hard time understanding how such services were intended to communicate with or find each other.
+If you use config files describing where to find another service, how can that possibly deal with things like redundancy?
+
+Let’s say that you need to spin up more than one instance of a given service, maybe you want to run 10 instances of your Ticket service and 5 instances of your Payment service.
+And things become even more problematic in a cloud scenario, maybe you need to spin up new virtual machines on demand, how do you make your services find each other in a dynamic topology like that?
+
+One answer to that question is Service Discovery.
+
+Service Discovery lets you register your services in some sort of registry, that registry can then be used to locate instances of your services.
+For those of you who are familiar with Dependency Injection containers, when you fetch an object from a DI container like so
+var ticketService = container.Get<ITicketService>(), the concepts are similar, but on a distributed level, you want to get access to some sort of capability but you don’t want to know exactly where or what it is.
+
+Another difference is that in service discovery you could very well have multiple service instances bound to the same service at the same time for redundancy.
+e.g. asking the service registry for the TicketService you might get back zero to many URI’s as there could be zero to many active instances at the time when you make the query.
+
+So how can we achieve this?
+The wrong way
+
+Can we just create a table in let’s say SQL Server use that for our registry?
+
+Well you could, but it will not work out that great for you.
+The first reason is that if you run a single instance of your database, then it is a single point of failure, if the DB dies, so does the rest of your system.
+But even if you spin up a cluster of servers, things will still not be that great, multiple SQL Servers are expensive and the consistency model and overhead of data access is not right for this kind of problem.
+A better way
+
+Instead, there are specialized tools for this problem.
+Eureka (Netflix), Consul.io, Etcd, ZooKeeper, Doozer and many others.
+
+Some are made specifically for service discovery and some are distributed key value stores.
+You have to find the tool that fits your needs the best.
+
+I personally like Consul.io, as it is designed for this problem.
+Services can register themselves using either a REST API or via DNS, and if a service becomes unresponsive, Consul can mark this service as unavailable and not include it in any search results.
+Introducing Microphone
+
+The last few days, have been building a mini framework, “Microphone”, that allows you to run self hosting services using either WebApi or NancyFx ontop of a Consul.io cluster.
+You can find the code here https://github.com/rogeralsing/Microphone
+
+When using it, each service will start out by allocating a free port to run on, once the service is started, it will register itself in the local Consul agent.
+
+Microphone is available on Nuget:
+Install from Nuget
+
+WebApi bootstrapper
+PM> Install-Package Microphone.WebApi
+1
+2
+	
+PM> Install-Package Microphone.WebApi
+ 
+
+NancyFx bootstrapper
+PM> Install-Package Microphone.Nancy
+1
+2
+	
+PM> Install-Package Microphone.Nancy
+ 
+Create a service
+
+When creating a self hosted service, you need to tell Microphone to bootstrap it for you.
+This will register your service in the Consul cluster and start the host for either NancyFx or WebApi;
+Web Api
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Bootstrap.Start("WebApiService","v1");
+            Console.ReadLine();
+        }
+    }
+
+    public class DefaultController : ApiController
+    {
+        public string Get()
+        {
+            return "WebApi Service";
+        }
+    }
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+	
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Bootstrap.Start("WebApiService","v1");
+            Console.ReadLine();
+        }
+    }
+ 
+    public class DefaultController : ApiController
+    {
+        public string Get()
+        {
+            return "WebApi Service";
+        }
+    }
+ 
+NancyFx
+    class Program
+    {
+        private static void Main(string[] args)
+        {
+            Bootstrap.Start("NancyService","v1");           
+            Console.ReadLine();
+        }
+    }
+
+    public class MyService : NancyModule
+    {
+        public MyService()
+        {
+            Get["/"] = _ => "Nancy Service";
+        }
+    }
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+	
+    class Program
+    {
+        private static void Main(string[] args)
+        {
+            Bootstrap.Start("NancyService","v1");           
+            Console.ReadLine();
+        }
+    }
+ 
+    public class MyService : NancyModule
+    {
+        public MyService()
+        {
+            Get["/"] = _ => "Nancy Service";
+        }
+    }
+ 
+Service Discovery
+
+If one of your services needs to communicate with another service in the same Consul cluster you can query it for active instances.
+//inside some WebApi/Nancy endpoint:
+
+var instances = Cluster.FindService("Service2");
+var instance = instances.First(); //or use random index to spread load
+
+//Use Rest# or similar to call into the remote service
+MakeSomeCall("/api/orders",instance.ServiceAddress, instance.ServicePort);
+1
+2
+3
+4
+5
+6
+7
+8
+	
+//inside some WebApi/Nancy endpoint:
+ 
+var instances = Cluster.FindService("Service2");
+var instance = instances.First(); //or use random index to spread load
+ 
+//Use Rest# or similar to call into the remote service
+MakeSomeCall("/api/orders",instance.ServiceAddress, instance.ServicePort);
+ 
+Running your services
+
+Before you start your services, make sure you have an active Consul cluster running on the host machine.
+
+If you are new to Consul, you can bootstrap your test environment using this command:
+consul agent -server -bootstrap -data-dir /tmp/consul
+1
+2
+	
+consul agent -server -bootstrap -data-dir /tmp/consul
+ 
+
+This will give you a single server Consul cluster, this is not recommended for production usage, but it will allow you to use service discovery on your dev machine.
+Diagnostics using Consul REST API
+
+Check service health on Consul agent:
+
+GET
+http://localhost:8500/v1/agent/checks
+1
+2
+	
+http://localhost:8500/v1/agent/checks
+ 
+
+Check all services registered on Consul agent:
+
+GET
+http://localhost:8500/v1/agent/services
+1
+2
+	
+http://localhost:8500/v1/agent/services
+ 
+Share this:
+
+
+https://docs.microsoft.com/en-us/dotnet/csharp/tutorials/microservices
+
+Introduction
+
+This tutorial details the tasks necessary to build and deploy an ASP.NET Core microservice in a Docker container. During the course of this tutorial, you'll learn:
+
+    How to generate an ASP.NET Core application using Yeoman
+    How to create a development Docker environment
+    How to build a Docker image based on an existing image.
+    How to deploy your service into a Docker container.
+
+Along the way, you'll also see some C# language features:
+
+    How to convert C# objects into JSON payloads.
+    How to build immutable Data Transfer Objects
+    How to process incoming HTTP Requests and generate the HTTP Response
+    How to work with nullable value types
+
+You can view or download the sample app for this topic. For download instructions, see Samples and Tutorials.
+Why Docker?
+
+Docker makes it easy to create standard machine images to host your services in a data center, or the public cloud. Docker enables you to configure the image, and replicate it as needed to scale the installation of your application.
+
+All the code in this tutorial will work in any .NET Core environment. The additional tasks for a Docker installation will work for an ASP.NET Core application.
+Prerequisites
+
+You’ll need to setup your machine to run .NET core. You can find the installation instructions on the .NET Core page. You can run this application on Windows, Ubuntu Linux, macOS or in a Docker container. You’ll need to install your favorite code editor. The descriptions below use Visual Studio Code which is an open source, cross platform editor. However, you can use whatever tools you are comfortable with.
+
+You'll also need to install the Docker engine. See the Docker Installation page for instructions for your platform. Docker can be installed in many Linux distributions, macOS, or Windows. The page referenced above contains sections to each of the available installations.
+
+Most components to be installed are done by a package manager. If you have node.js's package manager npm installed you can skip this step. Otherwise install the latest NodeJs from nodejs.org which will install the npm package manager.
+
+At this point you will need to install a number of command line tools that support ASP.NET core development. The command line templates use Yeoman, Bower, Grunt, and Gulp. If you have them installed that is good, otherwise type the following into your favorite shell:
+
+npm install -g yo bower grunt-cli gulp
+
+The -g option indicates that it is a global install, and those tools are available system wide. (A local install scopes the package to a single project). Once you've installed those core tools, you need to install the yeoman asp.net template generators:
+
+npm install -g generator-aspnet
+Create the Application
+
+Now that you've installed all the tools, create a new asp.net core application. To use the command line generator, execute the following yeoman command in your favorite shell:
+
+yo aspnet
+
+This command prompts you to select what Type of application you want to create. For this microservice, you want the simplest, most lightweight web application possible, so select 'Empty Web Application'. The template will prompt you for a name. Select 'WeatherMicroservice'.
+
+The template creates eight files for you:
+
+    A .gitignore, customized for asp.net core applications.
+    A Startup.cs file. This contains the basis of the application.
+    A Program.cs file. This contains the entry point of the application.
+    A WeatherMicroservice.csproj file. This is the build file for the application.
+    A Dockerfile. This script creates a Docker image for the application.
+    A README.md. This contains links to other asp.net core resources.
+    A web.config file. This contains basic configuration information.
+    A runtimeconfig.template.json file. This contains debugging settings used by IDEs.
+
+Now you can run the template generated application. That's done using a series of tools from the command line. The dotnet command runs the tools necessary for .NET development. Each verb executes a different command
+
+The first step is to restore all the dependencies:
+console
+
+dotnet restore
+
+Dotnet restore uses the NuGet package manager to install all the necessary packages into the application directory. It also generates a project.json.lock file. This file contains information about each package that is referenced. After restoring all the dependencies, you build the application:
+console
+
+dotnet build
+
+And once you build the application, you run it from the command line:
+console
+
+dotnet run
+
+The default configuration listens to http://localhost:5000. You can open a browser and navigate to that page and see a "Hello World!" message.
+Anatomy of an ASP.NET Core application
+
+Now that you've built the application, let's look at how this functionality is implemented. There are two of the generated files that are particularly interesting at this point: project.json and Startup.cs.
+
+Project.json contains information about the project. The two nodes you'll often work with are 'dependencies' and 'frameworks'. The dependencies node lists all the packages that are needed for this application. At the moment, this is a small node, needing only the packages that run the web server.
+
+The 'frameworks' node specifies the versions and configurations of the .NET framework that will run this application.
+
+The application is implemented in Startup.cs. This file contains the startup class.
+
+The two methods are called by the asp.net core infrastructure to configure and run the application. The ConfigureServices method describes the services that are necessary for this application. You're building a lean microservice, so it doesn't need to configure any dependencies. The Configure method configures the handlers for incoming HTTP Requests. The template generates a simple handler that responds to any request with the text 'Hello World!'.
+Build a microservice
+
+The service you're going to build will deliver weather reports from anywhere around the globe. In a production application, you'd call some service to retrieve weather data. For our sample, we'll generate a random weather forecast.
+
+There are a number of tasks you'll need to perform in order to implement our random weather service:
+
+    Parse the incoming request to read the latitude and longitude.
+    Generate some random forecast data.
+    Convert that random forecast data from C# objects into JSON packets.
+    Set the response header to indicate that your service sends back JSON.
+    Write the response.
+
+The next sections walk you through each of these steps.
+Parsing the Query String.
+
+You'll begin by parsing the query string. The service will accept 'lat' and 'long' arguments on the query string in this form:
+
+http://localhost:5000/?lat=-35.55&long=-12.35
+
+All the changes you need to make are in the lambda expression defined as the argument to app.Run in your startup class.
+
+The argument on the lambda expression is the HttpContext for the request. One of its properties is the Request object. The Request object has a Query property that contains a dictionary of all the values on the query string for the request. The first addition is to find the latitude and longitude values:
+C#
+
+var latString = context.Request.Query["lat"].FirstOrDefault();
+var longString = context.Request.Query["long"].FirstOrDefault();
+
+The Query dictionary values are StringValue type. That type can contain a collection of strings. For your weather service, each value is a single string. That's why there's the call to FirstOrDefault() in the code above.
+
+Next, you need to convert the strings to doubles. The method you'll use to convert the string to a double is double.TryParse():
+C#
+
+bool TryParse(string s, out double result);
+
+This method leverages C# out parameters to indicate if the input string can be converted to a double. If the string does represent a valid representation for a double, the method returns true, and the result argument contains the value. If the string does not represent a valid double, the method returns false.
+
+You can adapt that API with the use of an extension method that returns a nullable double. A nullable value type is a type that represents some value type, and can also hold a missing, or null value. A nullable type is represented by appending the ? character to the type declaration.
+
+Extension methods are methods that are defined as static methods, but by adding the this modifier on the first parameter, can be called as though they are members of that class. Extension methods may only be defined in static classes. Here's the definition of the class containing the extension method for parse:
+C#
+
+public static class Extensions
+{
+    public static double? TryParse(this string input)
+    {
+        double result;
+        if (double.TryParse(input, out result))
+        {
+            return result;
+        }
+        else
+        {
+            return default(double?);
+        }
+    }
+}
+
+The default(double?) expression returns the default value for the double? type. That default value is the null (or missing) value.
+
+You can use this extension method to convert the query string arguments into the double type:
+C#
+
+var latitude = latString.TryParse();
+var longitude = longString.TryParse();
+
+To easily test the parsing code, update the response to include the values of the arguments:
+C#
+
+await context.Response.WriteAsync($"Retrieving Weather for lat: {latitude}, long: {longitude}");                
+
+At this point, you can run the web application and see if your parsing code is working. Add values to the web request in a browser, and you should see the updated results.
+Build a random weather forecast
+
+Your next task is to build a random weather forecast. Let's start with a data container that holds the values you'd want for a weather forecast:
+C#
+
+public class WeatherReport
+{
+    private static readonly string[] PossibleConditions = new string[]
+    {
+        "Sunny",
+        "Mostly Sunny",
+        "Partly Sunny",
+        "Partly Cloudy",
+        "Mostly Cloudy",
+        "Rain"
+    };
+
+    public int HiTemperature { get; }
+    public int LoTemperature { get; }
+    public int AverageWindSpeed { get; }
+    public string Conditions { get; }
+}
+
+Next, build a constructor that randomly sets those values. This constructor uses the values for the latitude and longitude to seed the Random number generator. That means the forecast for the same location is the same. If you change the arguments for the latitude and longitude, you'll get a different forecast (because you start with a different seed.)
+C#
+
+public WeatherReport(double latitude, double longitude, int daysInFuture)
+{
+    var generator = new Random((int)(latitude + longitude) + daysInFuture);
+
+    HiTemperature = generator.Next(40, 100);
+    LoTemperature = generator.Next(0, HiTemperature);
+    AverageWindSpeed = generator.Next(0, 45);
+    Conditions = PossibleConditions[generator.Next(0, PossibleConditions.Length - 1)];
+}
+
+You can now generate the 5-day forecast in your response method:
+C#
+
+if (latitude.HasValue && longitude.HasValue)
+{
+    var forecast = new List<WeatherReport>();
+    for (var days = 1; days < 6; days++)
+    {
+        forecast.Add(new WeatherReport(latitude.Value, longitude.Value, days));
+    }
+    var json = JsonConvert.SerializeObject(forecast, Formatting.Indented);
+    context.Response.ContentType = "application/json; charset=utf-8";
+    await context.Response.WriteAsync(json);
+}
+
+Build the JSON response.
+
+The final code task on the server is to convert the WeatherReport array into a JSON packet, and send that back to the client. Let's start by creating the JSON packet. You'll add the NewtonSoft JSON Serializer to the list of dependencies. You can do that using the dotnet CLI:
+
+dotnet add package Newtonsoft.Json
+
+Then, you can use the JsonConvert class to write the object to a string:
+C#
+
+var json = JsonConvert.SerializeObject(forecast, Formatting.Indented);
+context.Response.ContentType = "application/json; charset=utf-8";
+await context.Response.WriteAsync(json);
+
+The code above converts the forecast object (a list of WeatherForecast objects) into a JSON packet. After you've constructed the response packet, you set the content type to application/json, and write the string.
+
+The application now runs and returns random forecasts.
+Build a Docker image
+
+Our final task is to run the application in Docker. We'll create a Docker container that runs a Docker image that represents our application.
+
+A Docker Image is a file that defines the environment for running the application.
+
+A Docker Container represents a running instance of a Docker image.
+
+By analogy, you can think of the Docker Image as a class, and the Docker Container as an object, or an instance of that class.
+
+The Dockerfile created by the asp.net template will serve for our purposes. Let's go over its contents.
+
+The first line specifies the source image:
+
+FROM microsoft/dotnet:1.1-sdk-msbuild
+
+Docker allows you to configure a machine image based on a source template. That means you don't have to supply all the machine parameters when you start, you only need to supply any changes. The changes here will be to include our application.
+
+In this first sample, we'll use the 1.1-sdk-msbuild version of the dotnet image. This is the easiest way to create a working Docker environment. This image include the dotnet core runtime, and the dotnet SDK. That makes it easier to get started and build, but does create a larger image.
+
+The next five lines setup and build your application:
+
+WORKDIR /app
+
+# copy csproj and restore as distinct layers
+
+COPY WeatherMicroservice.csproj .
+RUN dotnet restore
+
+# copy and build everything else
+
+COPY . .
+
+# RUN dotnet restore
+RUN dotnet publish -c Release -o out
+
+This will copy the project file from the current directory to the docker VM, and restore all the packages. Using the dotnet CLI means that the Docker image must include the .NET Core SDK. After that, the rest of your application gets copied, and the dotnet publish command builds and packages your application.
+
+The final line of the file runs the application:
+
+ENTRYPOINT ["dotnet", "out/WeatherMicroservice.dll", "--server.urls", "http://0.0.0.0:5000"]
+
+This configured port is referenced in the --server.urls argument to dotnet on the last line of the Dockerfile. The ENTRYPOINT command informs Docker what command and command line options start the service.
+Building and running the image in a container.
+
+Let's build an image and run the service inside a Docker container. You don't want all the files from your local directory copied into the image. Instead, you'll build the application in the container. You'll create a .dockerignore file to specify the directories that are not copied into the image. You don't want any of the build assets copied. Specify the build and publish directories in the .dockerignore file:
+
+bin/*
+obj/*
+out/*
+
+You build the image using the docker build command. Run the following command from the directory containing your code.
+console
+
+docker build -t weather-microservice .
+
+This command builds the container image based on all the information in your Dockerfile. The -t argument provides a tag, or name, for this container image. In the command line above, the tag used for the Docker container is weather-microservice. When this command completes, you have a container ready to run your new service.
+
+Run the following command to start the container and launch your service:
+console
+
+docker run -d -p 80:5000 --name hello-docker weather-microservice
+
+The -d option means to run the container detached from the current terminal. That means you won't see the command output in your terminal. The -p option indicates the port mapping between the service and the host. Here it says that any incoming request on port 80 should be forwarded to port 5000 on the container. Using 5000 matches the port your service is listening on from the command line arguments specified in the Dockerfile above. The --name argument names your running container. It's a convenient name you can use to work with that container.
+
+You can see if the image is running by checking the command:
+console
+
+docker ps
+
+If your container is running, you'll see a line that lists it in the running processes. (It may be the only one).
+
+You can test your service by opening a browser and navigating to localhost, and specifying a latitude and longitude:
+
+http://localhost/?lat=35.5&long=40.75
+
+Attaching to a running container
+
+When you ran your sevice in a command window, you could see diagnostic information printed for each request. You don't see that information when your container is running in detached mode. The Docker attach command enables you to attach to a running container so that you can see the log information. Run this command from a command window:
+console
+
+docker attach --sig-proxy=false hello-docker
+
+The --sig-proxy=false argument means that Ctrl-C commands do not get sent to the container process, but rather stop the docker attach command. The final argument is the name given to the container in the docker run command.
+Note
+
+You can also use the docker assigned container ID to refer to any container. If you didn't specify a name for your container in docker run you must use the container id.
+
+Open a browser and navigate to your service. You'll see the diagnostic messages in the command windows from the attached running container.
+
+Press Ctrl-C to stop the attach process.
+
+When you are done working with your container, you can stop it:
+console
+
+docker stop hello-docker
+
+The container and image is still available for you to restart. If you want to remove the container from your machine, you use this command:
+console
+
+docker rm hello-docker
+
+If you want to remove unused images from your machine, you use this command:
+console
+
+docker rmi weather-microservice
+
+Conclusion
+
+In this tutorial, you built an asp.net core microservice, and added a few simple features.
+
+You built a docker container image for that service, and ran that container on your machine. You attached a terminal window to the service, and saw the diagnostic messages from your service.
+
+Along the way, you saw several features of the C# language in action.
+
+
+https://github.com/dotnet/core/blob/master/roadmap.md
+
+.NET Core Roadmap
+
+We aim to continuously deliver updates to the .NET Core Runtime and Tools and our primary focus right now is on .NET Core 2.0.
+
+We shipped Visual Studio 2017 RTM with .NET Core 1.X support. Please try VS 2017.
+Primary scenarios for .NET Core 2.0
+
+    Lower the Barrier of Entry and Reach. .NET Standard 2.0 standardizes the shared APIs across .NET Framework, .NET Core and Xamarin making it easy to share code across all of .NET. .NET Core gain over 5,000 APIs from .NET Framework as part of this work making it a broader platform. Simplifying how a developer references .NET Core from many packages to one. Simplified acquisition of runtime and tools. And easier to reference Linux platforms and their dependencies. You can follow this work in the dotnet/standard and dotnet/corefx repos.
+
+    .NET Core Tooling. Evolve the tooling aligned with the next .NET Core runtime release. This will include tooling for choosing which .NET Core version to target, to change the version of .NET Core for existing projects, full package IntelliSense in .csproj files and more. You can follow this work in the dotnet/project-system, dotnet/sdk, microsoft/msbuild, and dotnet/cli repos.
+
+    Performance. Continue to make the performance of building .NET Core applications faster, especially in the inner loop. This is the cycle of changing the source code and then restarting the application and making that as fast as possible. You can follow part of this work in the  dotnet/sdk repo.
+
+    .NET Core and Cloud. Continue to improve how you run .NET Core applications in Azure. Better logging, tracing and diagnosing errors in your applications when running in the cloud. You can follow this work in the dotnet/corefx, dotnet/corefxlab, and aspnet repos.
+
+    Build from Source. Make it very easy to clone the .NET Core repository at GitHub and build the product. Great for experimenting with customizing the product or trying to get it to run on Linux distributions other than the ones we officially support. You can follow the bulk of the work in the dotnet/coreclr and dotnet/corefx repos.
+
+As mentioned above these are just some of the early big themes we are going to invest in, we will also continue to invest in ASP.NET, Entity Framework, Languages and many other parts of .NET.
+
+Components
+
+.NET Core is a general purpose, modular, cross-platform and open source implementation of .NET. It includes a runtime, framework libraries, compilers and tools that support a variety of chip and OS targets. These components can be used together or separately.
+
+Major .NET Core components are listed below. Please note that this is not meant to be an exhaustive list.
+
+    Runtime
+    Libraries
+    .NET Standard
+    C#/VB compiler
+    F# compiler
+    SDK
+    CLI tools / CLI documentation
+    NuGet
+    ASP.NET
+    MSBuild
+    Docker Images
+
+This roadmap is intended to communicate project priorities for evolving and extending the scope of .NET Core.
+
+Project Goals
+
+Broad goals:
+
+    .NET Core code is high quality, has compelling performance, and is highly reliable.
+    .NET Core can be ported to a broad set of OS platforms and chip architectures.
+    .NET Core can be deployed with the application, side-by-side with other versions.
+    .NET Core has a broad API surface that makes it suitable for most payloads.
+    Developers can acquire a .NET Core developer environment quickly and intuitively.
+    Developers can productively and intuitively build apps, using documentation, samples, community resources, and NuGet packages.
+
+Contributions
+
+Contribution goals:
+
+    Encourage an active community welcoming contributions from all.
+
+The .NET Core maintainers have taken a liberal approach to contributions since the outset of the .NET Core open source project.
+Microsoft Distro
+
+Microsoft ships multiple .NET Core distros. It is important that Microsoft can successfully ship .NET Core at quality and meet its desired dates.
+Other Distros
+
+.NET Core will ship as part of many Linux distros and we are actively working with key partners in the Linux community to make it natural for .NET Core to go everywhere people need it. We are constantly looking to expand our distro support and welcome contributions and collaborations in this direction.
+Goals
+
+    There are high-quality ports for Linux, macOS and Windows.
+    There are high-quality ports for X64, X86, ARM32, and ARM64.
+    .NET Core ships stable releases multiple times a year.
+    Contributions should be prioritized that align with these goals.
+
+Workloads
+
+The Microsoft distro currently supports the following workloads:
+
+    Console Apps
+    ASP.NET Core
+    Windows 10 UWP
+
+
+https://creativecommons.org/licenses/by/4.0/
+http://www.c-sharpcorner.com/UploadFile/8a67c0/14-new-things-about-Asp-Net-5/
+ASP.NET Core has one more command line tool manager and it is called DNVM. DNVM [DotNet Version Manager] allows you to install or upgrade the DNX Version.
+
+https://docs.microsoft.com/en-us/aspnet/core/aspnetcore-1.1
+ASP.NET Core 1.1 includes the following new features:
+
+    URL Rewriting Middleware
+    Response Caching Middleware
+    View Components as Tag Helpers
+    Middleware as MVC filters
+    Cookie-based TempData provider
+    Azure App Service logging provider
+    Azure Key Vault configuration provider
+    Azure and Redis Storage Data Protection Key Repositories
+    WebListener Server for Windows
+    WebSockets support
+
+Choosing between versions 1.0 and 1.1 of ASP.NET Core
+
+ASP.NET Core 1.1 has more features than 1.0. In general, we recommend you use the latest version.
+
+
+https://stackify.com/net-core-2-0-changes/
+It has only been about a year since .NET Core 1.0 RC came out. We are now getting close to .NET Core 2.0. We have been playing with .NET Core since the betas and feel like the quality of the 1.0 runtime was very good. Our only complaint has really been odd Visual Studio behavior. We would expect that with 2.0, the adoption is likely to skyrocket.
+
+Read more: Why C# and .NET Core Are the Next Big Thing
+Recent .NET Core 1.1 Changes with Visual Studio 2017
+1. xproj Project Files Replaced by New Version of csproj
+
+One of the biggest differences with .NET Core was the new project files. Visual Studio used xproj and project.json files instead of the traditional csproj. The new project file format was much simpler but didn’t work with some other .NET tools like msbuild. The new csproj is supposed to include a lot of the benefits learned from the xproj experiment.
+2. MSBuild Works Again
+
+This is a big deal and was a big problem for us at Stackify. Our build process for Prefix used MSBuild and Installshield to package it up for deployment. By switching to xproj, all of that was broken. Getting MSBuild support back will be much appreciated for those that already have a lot of existing build and deployment processes in place.
+3. Visual Studio 2017 – Tooling Enhancements
+
+Now that project.json is gone, how you do multi-targeting of frameworks and the Visual Studio UI around references and dependencies has completely changed in Visual Studio 2017.
+
+To do multi targeting you now have to manually edit the csproj file and things can get a little weird. The good news if you are only targeting one framework, you can easily do it within the project properties. Multi targeting has been relegated to an advanced use case I guess with poor UI support for it.
+
+By the way, one of the other big advantages of Visual Studio 2017 is how easy it is to install. Microsoft spent an enormous amount of time trying to streamline and improve the installation experience. Check out the Microsoft docs site to learn more about the changes and new features of VS 2017.
+So, what is changing with .NET Core 2.0?
+1. Release Date
+
+Keep an eye on the .NET Core roadmap over at GitHub. It currently says Q2 for a preview/RC type release and Q3 for general availability. I would expect the 2.0 preview to be launched at Microsoft Build 2017.
+
+Visual Studio 2017 was released in March 2017. As part of that, there was a bunch of .NET Core tooling improvements along with the new csproj file format.
+2. .NET Standard 2.0 Expanded APIs & the Ability to Reference Full Framework Libraries
+
+.NET Standard 2.0 will broaden the set of APIs available to include a lot of the missing features. It sounds like 2.0 will make virtually all full framework APIs available.  Some popular complaints were System.Drawing, DataTables, and others. You can search the code of over on GitHub to see the changes. Isn’t open source awesome?
+
+One of the biggest problems with .NET Core was the lack of third party libraries. For example, when 1.0 came out, popular logging libraries like log4net were not even available (it is now). However, this was really only a problem if you wanted to deploy your app on Mac or Linux. You could have used .NET Core and targeted full .NET framework and not had these issues.
+
+.NET Standard 2.0 has added a new compatibility shim that will enable any .NET Core app to reference any full framework library.
+
+From Microsoft:
+
+    Of course, this will only work for cases where the .NET Framework library uses APIs that are available for .NET Standard. That’s why this isn’t the preferred way of building libraries you intend to use across different .NET platforms. However, this compatibility shim provides a bridge that enables you to convert your libraries to .NET Standard without having to give up referencing existing libraries that haven’t been converted yet.
+
+Also check out this great blog post: .NET Standard 2.0 – Making Sense of .NET Again
+3. Expanded OS Support
+
+One of the big goals with .NET Core is portability across multiple operating systems. Including desktops, servers, and even mobile. Microsoft, and the community, continue to expand the support of .NET Core. Look for the next version to continue expanding support of common Linux distros. Samsung is even working to provide support for the mobile OS Tizen.
+ 4. Other Improvement Themes
+
+On GitHub, the team lists these themes as being central to .NET Core 2.0.
+
+    .NET Core Tooling – Further tooling improvements in Visual Studio
+    Performance – The .NET team and community seems to be up to the challenge for ensuring .NET Core is the fastest application runtime available.
+    .NET Core and Cloud – Improve how to deploy apps to Azure and troubleshoot application problems.
+    Build from Source – Ability to clone the actual .NET Core source code repository and build it!
+
+.Net Core 2.0 Changes are on the Way!
+
+We will continue to update this as we learn more and after the release. We are excited to get our hands on it and build cool stuff with it. We will also be working to ensure that Prefix and Retrace also work perfectly with 2.0 as they come out.
+
+
+https://stackify.com/net-core-2-0-changes/
+
+
+http://www.talkingdotnet.com/whats-new-in-asp-net-core-2-0/
+ASP.NET Core 2.0 Preview 1 is already out and you can start building application with ASP.NET Core 2.0. At the time of writing this post, it is still in Preview 1 and final version is expected to be released in Q3-2017. To build ASP.NET Core 2.0 based application, you need to install Visual Studio 2017 Preview 3. Since this is a major release, expect some code breaking changes and a few new pieces. In this post, I try to put together a quick and short summary of what’s new in ASP.NET Core 2.0 compared to ASP.NET Core 1.1.
+Here is what’s new in ASP.NET Core 2.0
+
+If you are new to ASP.NET Core, please read first, Quick summary of what’s changed in ASP.NET Core and you can also check out my other post for ASP.NET Core 1.0. Let’s see what’s new in ASP.NET Core 2.0.
+
+    ASP.NET Core 2.0 implements .NET Standard 2.0. This allows you to use missing .NET Framework pieces with ASP.NET Core like Datasets, Binary Serialization, Reflection and many other pieces. Read What’s new in .NET Standard 2.0
+    ASP.NET Core application can be created via dotnet cli also. The following command creates a new ASP.NET Core web application.
+    ?
+    1
+    	
+    dotnet new web
+
+    Once this command is completed, you need to execute another command to restore all the packages.
+    ?
+    1
+    	
+    dotnet restore
+
+    You don’t have to execute this extra command with .NET Core 2.0. Restoring packages is now part of the dotnet new command.
+    ASP.NET Core 2.0 application now references a single meta package Microsoft.AspNetCore.All to include all ASP.NET Core packages with the product version. This makes .csproj file short and clean. Here is a sample ASP.NET Core 2.0 sample .csproj file (Line no. 13).
+
+It is a super easy way to include all the ASP.NET Core packages reference without worrying about their different version. You no longer have to pick individual ASP.NET Core packages. But wait, when ASP.NET Core was introduced, there was so much hype about being modular and bring only what is needed. For example, If you want MVC then include its package. Many developers liked this as it brings down the size of the application. So are we moving from being modular?
+
+The answer is NO. If you don’t like this package of packages thing, you can still follow the traditional way of including needed packages. Then, why this one big package is introduced? Well, maintaining, updating and removing unwanted packages requires some efforts and it’s kind-of painful. The other problem would be to remember the package name.
+
+By now, you must be cursing Microsoft and concerned as this would add unnecessary crap to your application, restoring will take ages and make your application heavy. You have already started thinking about the performance of the application :). Your concern is right, but stop cursing Microsoft because, the .NET Core SDK already has all the packages included inside of Microsoft.AspNetCore.All, so you are never downloading them from the web. It is all available on your machine. Phew!!!
+
+What about Deployment? Well, if there are features you don’t need in your application, the new package trimming features will exclude those binaries in your published application output by default.
+ASP.NET Core 2.0 introduces a new way to build web host configuration. This new approach sets the defaults of the web host configuration using WebHost.CreateDefaultBuilder() API.
+Familiar Program.cs (ASP.NET Core 1.1)
+
+BuildWebHost is an expression bodied function member introduced in C# 6. This method calls a static method CreateDefaultBuilder which adds Kestrel, IIS configuration, default configuration sources, logging providers, and the content root. Instead of you doing all this, the CreateDefaultBuilder will do it for you. You can take a look at the code of this function here.
+Logging and building configuration is no longer part of Startup.cs file. It is now part of CreateDefaultBuilder, called in Program.cs.
+Startup.cs in ASP.NET Core 1.1 project looks like this:
+
+As you can see, the constructor no longer takes IHostingEnvironment, instead takes the IConfiguration injected dependency and sets the Configuration property for later access if needed. Another change is in the Configure method as logging is no longer part of this method.
+ASP.NET Core 2.0 introduces Razor Pages. Razor Pages are simple pages or views without controllers associated to it. Razor pages are included with Microsoft.AspNetCore.Mvc package. They work on the convention and needs to be placed in Pages folder and the extension is .cshtml. Following is a sample razor code page.
+
+They must use @page directive on top as the first directive. You can write razor page with inline model (using @functions directive), separate page models (called Pages Models) and with no models. Routing works quite well with Razor pages. Please visit the official documentation for more details.
+The Platform Abstraction API responsible for application environment information is removed. Please visit this link to find out the replacement.
+Authentication has undergone some major changes for 2.0. All Auth middleware are services now and there is now only a single authentication middleware is needed which is app.UseAuthentication(). In .NET Core 1.1, to enable cookie authentication,
+
+    As you can see, Configure() method now just adds the authentication middleware to pipeline without specifying any configurable options for authentication mechanism. The following table shows name changes of some of the authentication middleware.
+
+ASP.NET Core 1.1 	ASP.NET Core 2.0
+app.UseOpenIdConnectAuthentication 	services.AddOpenIdConnectAuthentication
+app.UseJwtBearerAuthentication 	services.AddJwtBearerAuthentication
+app.UseFacebookAuthentication 	services.AddFacebookAuthentication
+
+For more details, take a look at this github link.
+
+http://www.talkingdotnet.com/net-core/
+.NET Standard 2.0 is out and it’s impressive!!!!
+
+Last week, .NET Core 2.0 preview 1 was announced along with ASP.NET Core 2.0 and .NET Standard 2.0. There are lots of new stuff to play with, but this post is focuses on .NET standard 2.0. At the time of writing this post, it is preview 1 release of .NET standard 2.0 and it’s impressive. This post talks about installing .NET standard 2.0 and find out what’s new in .NET Standard 2.0. 
+
+What’s new in .NET Standard 2.0
+
+.NET Standard is a standard that represents a set of APIs that all .NET platforms have to implement. Don’t confuse yourself with .NET Core. .NET Core is a platform which implements .NET Standards. Take a look at below video, Immo Landwerth explains what, why and where about .NET Standard.
+
+http://www.talkingdotnet.com/whats-new-in-net-standard-2/
+This new release of .NET Standard addresses couple of problems with current version of .NET Standard (1.6). The current version has following issues,
+
+    Not enough APIs – The current version (1.6) of .NET Standard doesn’t have enough APIs which makes almost impossible to port your existing .NET Framework application code to .NET Core. For example, If your existing code is using dataset, you can’t directly move your code to .NET Core.
+    Issue with third-party library – If the consumed third-party library doesn’t implement .NET Standard (1.x), then you can’t consume it in your application.
+
+This release of .NET Standard now supports around 33K APIs, compare to 14K APIs supported by .NET Standard 1.x. The good thing is that majority of the APIs are from .NET Framework. This makes life easy to port code to .NET Standards. Below image gives you a summary of .NET Framework APIs which are now included in .NET Standard 2.0.
+
+What's new in .NET Standard 2.0
+
+Now, you can use datasets, datatables, reflection and binary serialization with .NET Standard. You can find the complete list here.
+
+This version 2.0 also fixes the third-party library compatibility issue with .NET Standard. Now you can use them with .NET Standard (Thanks to compatibility shim used by .NET Standard.). Wait, there is a catch. If there is any API used by third-party library which .NET Standard doesn’t have, then you can’t use the third-party library with .NET Standard.
+How to install .NET Standard 2.0
+
+Installing .NET Standard 2.0 is super simple. Download the installer from here and run it. Don’t worry about current SDK installed on your system. Multiple versions of SDK can be installed side by side. Navigate to “C:\Program Files\dotnet\sdk” in your machine to see list of all SDK version installed on your machine.
+Once the installation is complete, open command prompt and type following command.
+?
+1
+	
+dotnet --version
+
+You should see 2.0.0-preview1-005977. Let’s create a new console application.
+?
+1
+	
+dotnet new console -o NetStandard2App
+
+This should create a .NET console application. To verify the version used by this newly created application to ensure it is targeting .NET Core 2.0., Open the .csproj file in notepad and you should see netcoreapp2.0 used as target framework.
+?
+1
+2
+3
+4
+	
+<PropertyGroup>
+   <OutputType>Exe</OutputType>
+   <TargetFramework>netcoreapp2.0</TargetFramework>
+</PropertyGroup>
+
+You should also read this excellent post by Andrew Lock to find out how to work with diffenet version of .NET SDK simultaneously.
+
+You can also create an ASP.NET Core 2.0 application from dotnet cli. Like,
+?
+1
+	
+dotnet new web -o ASPNetCore2App
+
+You can build and run this application from dotnet cli. To open it in Visual Studio, you need to install Visual Studio 2017 Preview 3 or latest version of Visual Studio Code. Read Quick summary of what’s new in ASP.NET Core 2.0.
+
+That’s it for now.
+Summary
+
+.NET Standard 2.0 is a major step forward for smooth transition from .NET Framework to .NET Core as it now supports majority of .NET Framework API. This post talks about what’s new with .NET Standard version 2.0 and how to install it and use it.
+
+Thank you for reading. Keep visiting this blog and share this in your network. Please put your thoughts and feedback in the comments section.
+
+
+http://www.talkingdotnet.com/yeoman/
+Why Yeoman for ASP.NET 5 applications?
+While learning .NET 5, I read that Yeoman now supports ASP.NET 5 application and it’s actually surprised me. And the first very thought came to my mind was “WHY?”
+Why Yeoman for ASP.NET 5 applications?
+
+Before we get to our topic, let’s understand about yeoman.
+What is Yeoman?
+
+Yeoman is, as per their official tagline Yeoman is “The web’s scaffolding tool for modern webapps”. And they are spot on with this. So let me put this in simple language what Yeoman can do for you. Yeoman can provide you a project structure, prescribing best practices, manage your dependencies and tools to help you stay productive. For example, if you are new to web application development and you have no idea about structure of your web app, best practices and required tools and dependencies. Well in such scenario, Yeoman is great help.
+
+Yeoman recommends a workflow to improve your productivity and reduce your development time. The workflow is composed of three tools: yo (a scaffolding tool), Grunt/Gulp (A JavaScript task runner and a build tool) and Bower a package manager (alternatives are available).
+
+To start with first install all Yeoman workflow tools using npm .
+?
+1
+	
+npm install -g yo bower grunt-cli gulp
+
+Read following articles for better understanding about grunt and gulp.
+
+    Gulp js Interview questions
+    Grunt js Interview questions
+
+Now, you also need to install a generator. Generator is going to help you get your project structure and all dependencies. And for every language/framework/Application, there is a separate generator. Like for angular js application there is angular generator and for jQuery application, there is jQuery generator. For this post, we will be installing webapp generator, which is the default web application generator that will scaffold out a project containing HTML5 Boilerplate, jQuery, and Grunt. You can get list of all Yeoman generators here.
+?
+1
+	
+npm install -g generator-webapp
+
+Now, let’s create our webapp.
+?
+1
+2
+	
+mkdir YoFirstWebApp // To create a new directory.
+yo webapp 
+
+And you should see following screen. And read the message “Out of box I include HTML5 Boilerplate, jQuery and a gruntfile to build you app”.
+
+Creating webapp using Yeoman
+
+And it is also prompting you to include SASS, Bootstrap and Modernizr. Select using space and hit enter. You should following screen where it is loading dependencies.
+
+Creating webapp using Yeoman Loading dependencies
+
+Once everything completed, your web application is ready. That’s really wonderful stuff. Isn’t it? Here are some articles on “How to use and start with Yeoman” which you can go through to learn more about Yeoman.
+
+    Getting started with Yeoman
+    Building Apps With the Yeoman Workflow
+    Improving Your Development Workflow with Yeoman
+
+Let’s get back to our topic “Why Yeoman for ASP.NET 5 applications?”
+
+Yeoman also has generator-aspnet to scaffold your ASP.NET projects. I will not be going to in detail about how to install and use it for asp.net application. You should read “Building Projects with Yeoman”.Please read the article, before going down.
+
+I assume that you have read the post. Now the question is that whatever asp.net web application structure is created using yo, can also be created using,
+Visual Studio 2015 -> New Project -> ASP.Net web application.
+
+We all know how powerful editor is Visual Studio is. In fact it’s not an editor, it’s an IDE (Integrated development environment). When I can get the same thing done via Visual Studio 2015 then why to use “Yeoman for ASP.NET applications?” To address this, one can give following argument.
+
+    It’s useful for front-end developers/UI developers who are not familiar with ASP.NET. But then again visual studio can do the same job for you.
+
+That’s fine. But there still has to be concrete reason for this. Well, the reason is that we all are aware that .NET 5 is cross platform which means it works on windows, linux and macintosh machines. And the bad news is that “Visual studio 2015 works only on windows machines.” So for building ASP.NET applications on other than windows platform, developers use Visual Studio Code. And VS code is just an editor and it’s not as powerful as Visual studio 2015. You should read “What is Visual Studio Code and how it is different from Visual Studio 2015.”
+
+VS Code is file and folder based as compared to Visual Studio, which is project or solution based. You don’t open a solution in VS Code, you simply open a folder and if a supported project exists we will load it. You don’t get options like create new website or application with VS Code. And that’s why Yeoman comes in picture.
+
+To summarize this, Yeoman with ASP.NET provides ASP.NET web application project scaffolding. And it may not be useful on windows as Visual Studio 2015 can perform the same job. But other than windows platform, Yeoman is the only option to build ASP.NET application. Yeoman is pretty handy on Linux and Mac or even on Windows if you don’t want to use Visual Studio. And that’s answer “Why Yeoman for ASP.NET 5 applications?”
+
+If you know any other reason than this, please write your feedback in comments section. I will update the article accordingly. Meanwhile, share this in your network.
+
+
+http://www.talkingdotnet.com/nancyfx/
+http://www.talkingdotnet.com/add-swagger-to-asp-net-core-web-api/
+Swagger is a simple yet powerful representation of your RESTful API. Once integrated with WEB API, it becomes easy to test the API without using any third-party tool. In this post, we will see how to add Swagger to ASP.NET Core Web API.
+Add Swagger to ASP.NET Core Web API
+
+Let’s create an ASP.NET Core Web API project. The default Web API template comes with a controller named “Values” with some GET, POST, PUT and DELETE method. Once the WEB API project is created, just run the app. You will see the following. There is no UI. There isn’t a list of all API methods and any other detail about them.
+
+Here, Swagger can be great help. To configure Swagger, we need to add the required nuget package for it. So open project.json and add the following line under dependencies section and save it. Visual studio will restore the package.
+
+http://www.talkingdotnet.com/grunt/
+As mentioned in my earlier post Gulp js interview questions, Gulp tasks are asynchronous. Which means that we are not sure about sequence of gulp tasks execution while chaining multiple tasks. And if you have used Grunt then it’s a tricky situation to handle for you as Grunt tasks are synchronous by design. So in this post, find how to run gulp tasks synchronously.
+
+https://docs.microsoft.com/en-us/dotnet/framework/whats-new/
+https://www.intertech.com/Blog/an-overview-of-whats-new-in-asp-net-core-1-0/
+First, a word about names…
+
+Microsoft product names can change at Microsoft and this new version of ASP.NET and the .NET framework are no different. For the past year this has been known as ASP.NET 5, but as of this writing a name change has been announced in a blog post by Scott Hanselman. Therefore, I’m going to refer to it here as “ASP.NET CORE 1.0”. Here is a quick overview of terms as I know them:
+ASP.NET CORE 1.0 	Formerly known as: ASP.NET CORE 5 or ASP.NET vNext. This is the new ASP.NET code and the topic of this blog post.
+
+ 
+.NET CORE 1.0 	Formerly known as NET CORE 5. When ASP.NET targets this version of .NET, the resulting package is portable to any machine running DNX
+
+ 
+
+Note: The current ASP.NET 5 Templates in Visual Studio 2015 shows two targeted execution environments. The first is DNX 4.5.1 which is the familiar .Net framework currently installed on the current machine. The second is DNX CORE 5.0 which is the same as .NET CORE 1.0 above.
+A big change for ASP.NET development
+
+The anticipated RTM of ASP.NET will bring a number of changes for developers looking to work with MVC or WEB.API. In fact, ASP.NET Core 1.0 is a complete re-write of ASP.NET that reflects a more modern view of software development. The changes are certain to impact the way you develop ASP.NET sites going forward. However, this new approach promises a number of important benefits:
+
+    Open Source
+    Modularity
+    Unified MVC and WEB.API
+    Dependency Injection and Middleware
+    Developer Productivity
+    Cross-platform capability
+
+Open source
+
+All source for ASP.NET Core 1.0 packages can be found at their GitHub site. Microsoft and the developer community have embraced the transparency of Open Source software.  ASP.NET’s GitHub site has a large number of active repositories which contain the source for the major features of ASP.NET, as well as middleware, demos, and useful tools. All projects are actively updated by both Microsoft contributors and the community at large. This approach enables a faster development cycle and continuous code improvement.
+Modularity
+
+NuGet packages have become the standard way to add new functionality to applications. Since Visual Studio 2010, developers have used the Package Manager Console and the NuGet Package Manager to install and configure frameworks and libraries. This has now been extended to include the core features of ASP.NET. The .NET developer has the ability to pick and choose which ASP.NET features to include in their solutions.  This opt-in model allows developers to be more deliberate with regard to which libraries are included in their projects.  Available packages include logging, diagnostics, Kestrel (a new hosting server), and more. When code evolves at a rapid pace, packaged-based software helps make maintaining and updating projects easier.
+Unified MVC and WEB.API
+
+In previous versions of ASP.NET, MVC and WEB.API were based on different versions of the framework: System.Web.Mvc and System.Web.Http/System.Net.Http, respectively. At a minimum, the differences in the concepts, namespace organization and classes led to confusion.  For example, the base class for controllers (Controller) was in a different namespace than the common result interface for controller actions (IActionResult).
+
+This has been resolved with ASP.NET CORE 1.0 MVC 6. There is now a single set of objects within a single namespace (currently Microsoft.AspNet.Mvc). This standardized approach simplifies developing both MVC and WEB.API endpoints.
+Dependency injection and middleware
+
+Dependency Injection has become a widely-accepted industry practice. It separates the concerns of type resolution from lifetime management and enables more effective unit testing. It has always been available as an add-on to ASP.NET development by using Microsoft’s own Unity library or a third party library such as Autofac or Ninject. Now, dependency injection is integrated into the framework. Third party products such as Autofac should still be available as an alternative to the build-in ASP.NET DI functionality.
+Developer productivity
+
+IIS is the logical web host for all Microsoft web products. However, some developers prefer a lightweight web server like those built upon node.js. In response to this need, Microsoft has packaged their own lightweight web server, Kestrel, with ASP.NET.  This has several uses, from development to cross-platform use. In fact, Kestrel can be chosen as the development server within Visual Studio 2015. Kestrel enables the developer to run their site on OSX. If the developer is using the new editor, Visual Studio Code, they will be able to edit and debug ASP.NET CORE 1.0 solutions on OSX. Developers on any platform only have to save changes and refresh the browser – the tedious compile process has been eliminated.
+Cross-platform
+
+ASP.NET Core 1.0 will run on the existing version of the .NET framework (4.6), but is designed to use the new .NET Core 1.0. When the .NET Core 1.0 is targeted, the framework code will be packaged with the deployed app. This version of the .NET framework has been ported to function on OSX and Linux. This extends the usability of .NET development beyond the Windows platform. If developers wish to work in OSX or Linux, Microsoft has developed Visual Studio Code – an editor that will allow the user to develop on any of those platforms.
+Final thoughts
+
+ASP.NET on the .Net Core 1.0 framework enables the most flexible version of ASP.NET yet. Its modular design, updated programming model and productivity improvements are certain to make it popular with developers. It is difficult to predict whether the cross-platform capability will be popular. Overall, it is good to see Microsoft re-inventing its product with the future in mind.
+
+
+https://en.wikipedia.org/wiki/ASP.NET_Core
+https://blogs.msdn.microsoft.com/dotnet/2017/03/07/announcing-net-core-tools-1-0/
+Today, we are releasing .NET Core Tools 1.0. It’s an exciting day and an important milestone in the .NET Core journey. The tools are supported on Windows, macOS and Linux. You can use them at the command-line, with VS Code or as part of Visual Studio 2017.
+
+You can download the new .NET Core tools at .NET Core Downloads, for using .NET Core on the command-line.
+
+The tools are also integrated into Visual Studio 2017, also releasing today. You need to select the .NET Core cross-platform development workload when you install Visual Studio.
+
+You can read more about the Visual Studio 2017 release in Announcing Visual Studio 2017 General Availability… and more. Also check out Visual Studio 2017: Productivity, Performance, and Partners.
+
+Visual Studio for Mac also includes support for .NET Core. Visual Studio for Mac Preview 4 is also releasing today.
+
+Visual Studio Code works great with .NET Core, too. The C# extension is a must-have for .NET Core development, and is typically suggested to you as soon as you open a C# or csproj file.
+
+New versions of the .NET Languages are included in Visual Studio. You can now use C# 7, Visual Basic 15 and F# 4.1. C# 7 is already supported with .NET Core (just by using the latest Roslyn!). We expect F# support in the first half of 2017 and then VB support after that.
+
+.NET Core 1.0.4 and .NET Core 1.1.1 were also released today. Both releases include a set of reliability updates to improve the quality of .NET Core. You can download the .NET Core Runtime releases via our .NET Core Runtimes download page. If you are looking for the .NET Core SDK to get the latest tools, try the .NET Core SDK download page.
+A Quick Tour of .NET Core
+
+There are some great experiences and features that we’ve built over the last several months, a big step forward over the tools that were previously available for .NET Core.
+
+You can take the tour of .NET Core by watching What’s new in .NET Core and Visual Studio 2017. It’s a great video, showing you a lot of the new .NET Core experience in just 8 minutes.
+
+We are encouraging everyone doing .NET Core development to move to Visual Studio 2017, including migrating from project.json to csproj. We will not be supporting csproj and MSBuild for .NET Core in Visual Studio 2015.
+
+Let’s take a look at some of the key improvements, starting with the command-line experience, moving to Docker and then into Visual Studio.
+Command-line experience
+
+You can very quickly create and run a .NET Core app on your favorite OS. Let’s see what the experience looks like on Windows, creating and launching a .NET Core 1.0 console app. You need the .NET Core SDK installed for this experience.
+
+https://docs.microsoft.com/en-us/dotnet/framework/get-started/net-core-and-open-source
+***************************
+Read above and this
+***************************
+What is .NET Core?
+
+.NET Core is a general purpose, modular, cross-platform and open source implementation of the .NET Standard. It contains many of the same APIs as the .NET Framework (but .NET Core is a smaller set) and includes runtime, framework, compiler and tools components that support a variety of operating systems and chip targets. The .NET Core implementation was primarily driven by the ASP.NET Core workloads but also by the need and desire to have a more modern implementation. It can be used in device, cloud and embedded/IoT scenarios.
+
+To get started with .NET Core, please visit the .NET Core homepage.
+
+Here are the main characteristics of .NET Core:
+
+    Cross-platform: .NET Core provides key functionality to implement the app features you need and reuse this code regardless of your platform target. It currently supports three main operating systems (OS): Windows, Linux and macOS. You can write apps and libraries that run unmodified across supported operating systems. To see the list of supported operating systems, visit .NET Core roadmap.
+
+    Open source: .NET Core is one of the many projects under the stewardship of the .NET Foundation and is available on GitHub. Having .NET Core as an open source project promotes a more transparent development process and promotes an active and engaged community.
+
+    Flexible deployment: there are two main ways to deploy your app: framework-dependent deployment or self-contained deployment. With framework-dependent deployment, only your app and third-party dependencies are installed and your app depends on a system-wide version of .NET Core to be present. With self-contained deployment, the .NET Core version used to build your application is also deployed along with your app and third-party dependencies and can run side-by-side with other versions. For more information, see .NET Core Application Deployment.
+
+    Modular: .NET Core is modular because it's released through NuGet in smaller assembly packages. Rather than one large assembly that contains most of the core functionality, .NET Core is made available as smaller feature-centric packages. This enables a more agile development model for us and allows you to optimize your app to include just the NuGet packages you need. The benefits of a smaller app surface area include tighter security, reduced servicing, improved performance, and decreased costs in a pay-for-what-you-use model.
+
+The .NET Core Platform
+
+The .NET Core platform is made of several components, which includes the managed compilers, the runtime, the base class libraries, and numerous application models, such as ASP.NET Core. You can learn more about the different components and get engaged, by visiting the following GitHub repos:
+
+    .NET Core
+
+    CoreFX - .NET Core foundational libraries
+
+    CoreCLR - .NET Core runtime
+
+    CLI - .NET Core command-line tools
+
+    Roslyn - .NET Compiler Platform
+
+    ASP.NET Core
+
+
+https://github.com/dotnet/core
+
+https://docs.microsoft.com/en-us/dotnet/core/
+Check out the "Getting Started" tutorials to learn how to create a simple .NET Core application. It only takes a few minutes to get your first app up and running.
+
+.NET Core is a general purpose development platform maintained by Microsoft and the .NET community on GitHub. It is cross-platform, supporting Windows, macOS and Linux, and can be used in device, cloud, and embedded/IoT scenarios.
+
+The following characteristics best define .NET Core:
+
+    Flexible deployment: Can be included in your app or installed side-by-side user- or machine-wide.
+    Cross-platform: Runs on Windows, macOS and Linux; can be ported to other operating systems. The supported Operating Systems (OS), CPUs and application scenarios will grow over time, provided by Microsoft, other companies, and individuals.
+    Command-line tools: All product scenarios can be exercised at the command-line.
+    Compatible: .NET Core is compatible with .NET Framework, Xamarin and Mono, via the .NET Standard.
+    Open source: The .NET Core platform is open source, using MIT and Apache 2 licenses. Documentation is licensed under CC-BY. .NET Core is a .NET Foundation project.
+    Supported by Microsoft: .NET Core is supported by Microsoft, per .NET Core Support
+
+Composition
+
+.NET Core is composed of the following parts:
+
+    A .NET runtime, which provides a type system, assembly loading, a garbage collector, native interop and other basic services.
+    A set of framework libraries, which provide primitive data types, app composition types and fundamental utilities.
+    A set of SDK tools and language compilers that enable the base developer experience, available in the .NET Core SDK.
+    The 'dotnet' app host, which is used to launch .NET Core apps. It selects the runtime and hosts the runtime, provides an assembly loading policy and launches the app. The same host is also used to launch SDK tools in much the same way.
+
+Languages
+
+The C# and F# languages (Visual Basic is coming) can be used to write applications and libraries for .NET Core. The compilers run on .NET Core, enabling you to develop for .NET Core anywhere it runs. In general, you will not use the compilers directly, but indirectly using the SDK tools.
+
+The C# and F# compilers and the .NET Core tools are or can be integrated into several text editors and IDEs, including Visual Studio, Visual Studio Code, Sublime Text and Vim, making .NET Core development an option in your favorite coding environment and OS. This integration is provided, in part, by the good folks of the OmniSharp project.
+.NET APIs and Compatibility
+
+.NET Core can be thought of as a cross-platform version of the .NET Framework, at the layer of the .NET Framework Base Class Libraries (BCL). It implements the .NET Standard specification. .NET Core provides a subset of the APIs that are available in the .NET Framework or Mono/Xamarin. In some cases, types are not fully implemented (some members are not available or have been moved).
+
+Look at the .NET Core roadmap to learn more about the .NET Core API roadmap.
+Relationship to .NET Standard
+
+The .NET Standard is an API spec that describes the consistent set of .NET APIs that developers can expect in each .NET implementation. .NET implementations need to implement this spec in order to be considered .NET Standard-compliant and to support libraries that target .NET Standard.
+
+.NET Core implements .NET Standard, and therefore supports .NET Standard libraries.
+Workloads
+
+By itself, .NET Core includes a single application model -- console apps -- which is useful for tools, local services and text-based games. Additional application models have been built on top of .NET Core to extend its functionality, such as:
+
+    ASP.NET Core
+    Windows 10 Universal Windows Platform (UWP)
+    Xamarin.Forms when targeting UWP
+
+Open Source
+
+.NET Core is open source (MIT license) and was contributed to the .NET Foundation by Microsoft in 2014. It is now one of the most active .NET Foundation projects. It can be freely adopted by individuals and companies, including for personal, academic or commercial purposes. Multiple companies use .NET Core as part of apps, tools, new platforms and hosting services. Some of these companies make significant contributions to .NET Core on GitHub and provide guidance on the product direction as part of the .NET Foundation Technical Steering Group.
+Acquisition
+
+.NET Core is distributed in two main ways, as packages on NuGet.org and as standalone distributions.
+Distributions
+
+You can download .NET Core at the .NET Core Getting Started page.
+
+    The Microsoft .NET Core distribution includes the CoreCLR runtime, associated libraries, a console application host and the dotnet app launcher. It is described by the Microsoft.NETCore.App metapackage.
+    The Microsoft .NET Core SDK distribution includes .NET Core and a set of tools for restoring NuGet packages and compiling and building apps.
+
+Typically, you will first install the .NET Core SDK to get started with .NET Core development. You may choose to install additional .NET Core (perhaps pre-release) builds.
+Packages
+
+    .NET Core Packages contain the .NET Core runtime and libraries (reference assemblies and implementations). For example, System.Net.Http.
+    .NET Core Metapackages describe various layers and app-models by referencing the appropriate set of versioned library packages.
+
+Architecture
+
+.NET Core is a cross-platform .NET implementation. The primary architectural concerns unique to .NET Core are related to providing platform-specific implementations for supported platforms.
+Environments
+
+.NET Core is supported by Microsoft on Windows, macOS and Linux. On Linux, Microsoft primarily supports .NET Core running on Red Hat Enterprise Linux (RHEL) and Debian distribution families.
+
+.NET Core currently supports X64 CPUs. On Windows, X86 is also supported. ARM64 and ARM32 are in progress.
+
+The .NET Core Roadmap provides more detailed information on workload and OS and CPU environment support and plans.
+
+Other companies or groups may support .NET Core for other app types and environment.
+Designed for Adaptability
+
+.NET Core has been built as a very similar but unique product relative to other .NET products. It has been designed to enable broad adaptability to new platforms, for new workloads and with new compiler toolchains. It has several OS and CPU ports in progress and may be ported to many more. An example is the LLILC project, which is an early prototype of native compilation for .NET Core via the LLVM compiler.
+
+The product is broken into several pieces, enabling the various parts to be adapted to new platforms on different schedules. The runtime and platform-specific foundational libraries must be ported as a unit. Platform-agnostic libraries should work as-is on all platforms, by construction. There is a project bias to reducing platform-specific implementations to increase developer efficiency, preferring platform-neutral C# code whenever an algorithm or API can be implemented in-full or in-part that way.
+
+People commonly ask how .NET Core is implemented in order to support multiple operating systems. They typically ask if there are separate implementations or if conditional compilation is used. It's both, with a strong bias towards conditional compilation.
+
+You can see in the chart below that the vast majority of CoreFX is platform-neutral code that is shared across all platforms. Platform-neutral code can be implemented as a single portable assembly that is used on all platforms.
+
+Windows and Unix implementations are similar in size. Windows has a larger implementation since CoreFX implements some Windows-only features, such as Microsoft.Win32.Registry but does not yet implement any Unix-only concepts. You will also see that the majority of the Linux and macOS implementations are shared across a Unix implementation, while the Linux- and macOS-specific implementations are roughly similar in size.
+
+There are a mix of platform-specific and platform-neutral libraries in .NET Core. You can see the pattern in a few examples:
+
+    CoreCLR is platform-specific. It's built in C/C++, so is platform-specific by construction.
+    System.IO and System.Security.Cryptography.Algorithms are platform-specific, given that the storage and cryptography APIs differ significantly on each OS.
+    System.Collections and System.Linq are platform-neutral, given that they create and operate over data structures.
+
+Comparisons to other .NET implementations
+
+It is perhaps easiest to understand the size and shape of .NET Core by comparing it to existing .NET implementations.
+Comparison with .NET Framework
+
+.NET was first announced by Microsoft in 2000 and then evolved from there. The .NET Framework has been the primary .NET implementation produced by Microsoft during that 15+ year span.
+
+The major differences between .NET Core and the .NET Framework:
+
+    App-models -- .NET Core does not support all the .NET Framework app-models, in part because many of them are built on Windows technologies, such as WPF (built on top of DirectX). The console and ASP.NET Core app-models are supported by both .NET Core and .NET Framework.
+    APIs -- .NET Core contains many of the same, but fewer, APIs as the .NET Framework, and with a different factoring (assembly names are different; type shape differs in key cases). These differences currently typically require changes to port source to .NET Core. .NET Core implements the .NET Standard API, which will grow to include more of the .NET Framework BCL API over time.
+    Subsystems -- .NET Core implements a subset of the subsystems in the .NET Framework, with the goal of a simpler implementation and programming model. For example, Code Access Security (CAS) is not supported, while reflection is supported.
+    Platforms -- The .NET Framework supports Windows and Windows Server while .NET Core also supports macOS and Linux.
+    Open Source -- .NET Core is open source, while a read-only subset of the .NET Framework is open source.
+
+While .NET Core is unique and has significant differences to the .NET Framework and other .NET implementations, it is straightforward to share code, using either source or binary sharing techniques.
+Comparison with Mono
+
+Mono is the original cross-platform and open source .NET implementation, first shipping in 2004. It can be thought of as a community clone of the .NET Framework. The Mono project team relied on the open .NET standards (notably ECMA 335) published by Microsoft in order to provide a compatible implementation.
+
+The major differences between .NET Core and Mono:
+
+    App-models -- Mono supports a subset of the .NET Framework app-models (for example, Windows Forms) and some additional ones (for example, Xamarin.iOS) through the Xamarin product. .NET Core doesn't support these.
+    APIs -- Mono supports a large subset of the .NET Framework APIs, using the same assembly names and factoring.
+    Platforms -- Mono supports many platforms and CPUs.
+    Open Source -- Mono and .NET Core both use the MIT license and are .NET Foundation projects.
+    Focus -- The primary focus of Mono in recent years is mobile platforms, while .NET Core is focused on cloud workloads.
+
+https://jonhilton.net/2017/04/17/making-sense-of-the-different-versions-of-net-core-runtime-and-sdk/
+https://www.microsoft.com/net/core/support
