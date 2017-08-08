@@ -1,0 +1,200 @@
+.NET CORE is an open source cross platform means that we can run our .net application on Windows, MAC and Linux. 
+
+A .NET runtime, provides type system (All types in .NET are either value types or reference types. ), assembly loading, garbage collector, native interop services
+
+The CoreCLR & CoreFX, replacing traditional framework CLR & FCL which were bound to Windows platform. 
+CoreCLR basically includes the garbage collector, JIT compiler, base .NET data types
+
+.NET Core is distributed in two main ways, as packages on NuGet.org and as standalone distributions.
+first install the .NET Core SDK to get started with .NET Core development. You may choose to install additional .NET Core
+
+.NET Core Packages contain the .NET Core runtime and libraries (aka reference assemblies).
+The core SDK distribution includes .NET Core and a set of tools for restoring NuGet packages and compiling and building apps. 
+
+
+On top of .NET Core, we have ASP.NET Core 1.0 and then, ASP.NET Core MVC.
+With making .Net Core a Cross Platrom, Microsoft removed the tightly IIS bound "System.Web" and made it "Microsoft.AspNetCore" which will work for all platform hosting environment.
+
+You can create two types of deployments for .NET Core applications:
+Framework-dependent deployment (FDD), 
+In this model, the output of the .NET Core application is always a .dll file. You won't find any .exe file to run.
+since we have already installed .NET Framework on the server, our published files of the application will be using the installed version of the framework and running the application.
+In this deployment step, only your app and any third-party dependencies get deployed
+
+Self-Contained deployment (SCD).
+files created using the SCD approach don't depend on the framework installed on our deployment version
+SCDs include an executable (such as app.exe), which is a renamed version of the a .dll file
+All the components, .NET Core libraries, and .NET Core runtimes will be included with application deployment files
+
+download dotnet core sdk from the web and good to go run your dotnet core program.
+The C#, VB and F# languages can be used to write applications and libraries for .NET Core. 
+The compilers run on .NET Core, enables to develop and execute the code
+
+Modular
+=======
+In the existing .net framework, when there was a new feature added in any component, a new version was released by Microsoft. For example – with ASP.NET MVC, there was a routing concept introduced untl ASP.NET MVC 4 which was there in Visual Studio 2012 (.NET framework 4.5). But with ASP.NET MVC 5, they introduced something called as Attribute Level Routing which was added in Visual Studio 2013 (.NET Framework 4.5.1). These kind of change in components may lead to introducing new release of framework version. But now, that is all gone with .NET Core, where everything is done through nuGet package. 
+It became very easy to upgrade the component as it will introduce the release of nuGet package and not the whole framework. 
+This makes everything modular.
+
+Faster Development Cycle
+========================
+We know .NET framework runs only on Windows platform.
+
+With these changes, Microsoft made changes to its libraries which were available in windows OS GAC on installation of .NET Framework.
+
+Take an example, the System library consists of many logical libraries, like System.IO, System.Net, System.Configuration, etc. which gets loaded into memory every time we use System library. 
+
+Suppose I need only System.IO, then my project should only refer System.IO instead of System as a whole. there is no need to load the whole library (when only a portion is needed?).
+
+To make it a light weight and optimized, .NET Core now supports nuGet packages for each of this logical library and they will no more refer from GAC
+
+The 'dotnet' app host, is used to launch .NET Core applications. It selects the runtime and hosts the runtime, provides an assembly loading policy and launches the app. 
+
+NET Core introduces a Command line application as dotnet.exe. This allows us to,
+    create an application 
+    execute the application
+    run the Intermediate language
+   for any platform.
+
+Cloud ready environment
+========================
+With .NET Core, we can build cloud based internet connected applications, like Web Apps, IOT apps 
+ASP.NET core has been designed with cloud in mind and it is optimized for cloud-based scenarios. 
+Everything that is done with ASP.NET core is with nuget packages.
+You can pull the package from nuget manager as you want into your application. 
+
+Choose your editors and tools
+=============================
+Visual Studio code is now available for MAC and Linux users to develop their application
+
+.Net Framework Nutshell
+=======================
+The primary architectural concerns unique to .NET Core are related to providing platform-specific implementations for supported platforms.
+
+As you can see in the diagram, the .NET ecosystem has two major high-level components - .NET Framework, .NET Core. 
+
+The .NET Framework supports Windows and Web applications. Today, we can use Windows Forms, WPF and UWP to build Windows applications in .NET Framework. 
+ASP.NET/web api/ MVC is used to build Web applications in .NET Framework.
+ 
+.NET Core is the new open-source and cross-platform framework to build applications for all operating system Windows, Mac, and Linux. 
+.NET Core supports UWP and ASP.NET Core only. 
+Universal Windows Platform (UWP) is used to build Windows and mobile applications. 
+ASP.NET Core is used to build browser based web applications. 
+
+The major differences between .NET Core and the .NET Framework: 
+App-models
+----------
+.NET Core does not support all the .NET Framework app-models, in part because many of them are built on Windows technologies, such as WPF (built on top of DirectX). 
+The console and ASP.NET Core app-models are supported by both .NET Core and .NET Framework. 
+
+APIs
+----
+.NET Core contains many of the same, but fewer, APIs with a different factoring (assembly names are different). 
+These differences currently require changes to port source to .NET Core. 
+.NET Core implements the .NET Standard API, which will grow to include more of the .NET Framework BCL API over time.
+
+Platforms 
+---------
+The .NET Framework supports Windows and Windows Server 
+while .NET Core also supports macOS and Linux.
+
+Workloads
+---------
+.NET Core includes a single application model thts tht, console apps -- which is useful for tools, local services and text-based games. 
+
+
+.NET Framework still stays there and it is windows component, on top of this you see ASP.NET stack with system.web dll on top of this you see different frameworks web forms, MVC and Web API.
+
+In above picture you can also notice there is a new framework .NET Core which is based on core CLR and it is open source and runs cross-platforms Mac, Windows and Linux. In the new world MVC also changing and it is called ASP.NET Core MVC.
+
+
+Here is a document that explains the process of porting .NET framework applications to .NET Core.  
+https://docs.microsoft.com/en-us/dotnet/articles/core/porting/index  
+
+ASP.NET Core features
+
+Here we get a new web server with code name Kestrel for hosting,  You will also have the option to define how your startup looks. It also has the Middleware which is asynchronous and light-weight. There are a bunch of middlewares that comes as outofbox like for routing, authentication, static files, diagnostics, error handling, session, CORS , localization and custom. 
+
+There is a main method as starting point for the application, in .net core world asp.net projects are really like console applications. In this main method you hookup hosting method to run the application. You can run the application using console which is self-hosted or you can run on your iis.
+
+There is a constructor in startup class which sets some initialization, for example, using Configuration Builder you can set different configuration providers, this template file is configured to use a json file which contains all configuration related keys
+
+The appsettings json file looks as below. You can also add environment specific configuration files using this file.
+
+ It includes the MVC framework, which now combines the features of MVC and Web API into a single web programming framework.
+
+
+C:\>dotnet new console -o myapp
+The template "Console Application" created successfully.
+
+C:\>cd myapp
+
+C:\myapp>dotnet restore
+  Restoring packages for C:\myapp\myapp.csproj...
+
+C:\myapp>dotnet run
+Hello World!
+
+For developing web application,
+
+>dotnet new –lang C# -t web
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
+    <RuntimeIdentifiers>win10-x64;osx.10.11-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.2" />
+  </ItemGroup>
+</Project>
+
+dotnet publish -c Release -r win10-x64
+And Fellow the dotnet command
+
+1. dotnet new Console
+
+2. dotnet restore
+
+3. dotnet build
+
+4. dotnet run
+
+5. dotnet build -r ubuntu.16.04-x64
+
+6. dotnet publish -c release -r ubuntu.16.04-x64
+
+
+
+C:\>dotnet new console -o myapp
+The template "Console Application" created successfully.
+
+C:\>cd myapp
+
+C:\myapp>dotnet restore
+  Restoring packages for C:\myapp\myapp.csproj...
+
+C:\myapp>dotnet run
+Hello World!
+
+
+
+Dependency Injection (DI) is a pattern where objects are not responsible for creating their own dependencies. Dependency Injection is a way to remove hard-coded dependencies among objects, making it easier to replace an object's dependencies, either for testing (using mock objects in unit test) or to change run-time behavior.
+
+Tight Coupling
+---------------
+When a class is dependent on a concrete dependency, it is said to be tightly coupled to that class.
+
+Loose Coupling
+---------------
+It means two objects are independent and an object can use another object without being dependent on it.
+
+The ASP.NET Core itself provides basic built in IoC container that is represented by IserviceProvider interface. It supports constructor depedency injection by default. ASP.NET Core uses DI for for instantiating all its components and services.
+
+kickstart new projects tools to help you stay productive.
+help developers build web applications. Yeoman runs as a command-line interface written for Node.js and combines several functions into one place, such as generating a starter template, managing dependencies, running unit tests, providing a local development server, and optimizing production code for deployment.
+
+Yeoman first creates a basic project structure with vendor libraries included. The most basic Yeoman generator supplies the HTML5 Boilerplate, 
+Yeoman is meant to be modular such that anyone can design a generator to create a template for a particular type of project.
+The Yeoman workflow comprises three types of tools for improving your productivity and satisfaction when building a web app: the scaffolding tool (yo), the build tool (Gulp, Grunt etc) and the package manager (like npm and Bower).
