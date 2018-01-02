@@ -1,0 +1,1 @@
+https://packages.couchbase.com/releases/5.0.1/couchbase-server-enterprise_5.0.1-windows_amd64.msi
